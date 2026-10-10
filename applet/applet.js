@@ -7,101 +7,93 @@
  * org.uim.toolbar 経由で行う。
  */
 
-const Cinnamon = imports.gi.Cinnamon;
-const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
-const Lang = imports.lang;
-const Main = imports.ui.main;
+const GLib = imports.gi.GLib;
 const PanelApplet = imports.ui.applet;
 const PopupMenu = imports.ui.popupMenu;
-const St = imports.gi.St;
-const Mainloop = imports.mainloop;
 
 const BUS_NAME = 'org.uim.toolbar';
 const OBJECT_PATH = '/org/uim/toolbar';
 const INTERFACE_NAME = 'org.uim.toolbar';
 const DAEMON_COMMAND = 'uim-toolbar-cinnamon';
 
-function UimToolbarApplet(orientation, panel_height, instance_id) {
-    this._init(orientation, panel_height, instance_id);
-}
-
-UimToolbarApplet.prototype = {
-    __proto__: PanelApplet.TextIconApplet.prototype,
-
-    _init: function(orientation, panel_height, instance_id) {
-        PanelApplet.TextIconApplet.prototype._init.call(this, orientation,
-                                                        panel_height,
-                                                        instance_id);
+class UimToolbarApplet extends PanelApplet.TextIconApplet {
+    constructor(orientation, panel_height, instance_id) {
+        super(orientation, panel_height, instance_id);
 
         this._state = null;
         this._menuItems = [];
 
+        this.set_applet_label('uim');
+        this.set_applet_tooltip('uim');
+        this.set_applet_icon_symbolic_name('input-keyboard');
+
         /* 左クリック: IM 選択メニュー */
         this.menu = new PanelApplet.AppletPopupMenu(this, orientation);
+        this.menuManager = new PopupMenu.PopupMenuManager(this);
         this.menuManager.addMenu(this.menu);
 
-        /* D-Bus プロキシ（常駐プロセスが居なければ起動を試みる） */
-        this._proxy = new Gio.DBusProxy({
-            g_bus_type: Gio.BusType.SESSION,
-            g_name: BUS_NAME,
-            g_object_path: OBJECT_PATH,
-            g_interface_name: INTERFACE_NAME,
-            g_flags: Gio.DBusProxyFlags.NONE,
-        });
-        this._proxy.init_async(GLib.PRIORITY_DEFAULT, null,
-                               Lang.bind(this, this._onProxyInit));
-        this._proxy.connect('g-properties-changed',
-                            Lang.bind(this, this._onNameOwnerChanged));
-        this._proxy.connect('g-signal',
-                            Lang.bind(this, this._onSignal));
+        /* 右クリック: ヘルパー起動メニュー（GTK3 版右クリックメニュー相当）
+         * Cinnamon の PopupMenuBase には 'open' シグナルが無いので
+         * finalizeContextMenu をオーバーライドして構築する
+         * （appletManager が main() 直後に 1 回呼ぶ）。
+         * super を呼ぶことで "About..."/"Remove" も自動追加される。 */
 
-        this.set_app_label('uim');
-    },
+        /* D-Bus プロキシ（常駐プロセスが居なければ起動を試みる） */
+        try {
+            this._proxy = Gio.DBusProxy.new_for_bus_sync(
+                Gio.BusType.SESSION,
+                Gio.DBusProxyFlags.NONE,
+                null,
+                BUS_NAME,
+                OBJECT_PATH,
+                INTERFACE_NAME,
+                null);
+        } catch (e) {
+            global.logError('uim-toolbar: proxy init failed: ' + e.message);
+            this._proxy = null;
+        }
+        if (this._proxy) {
+            this._proxy.connect('notify::g-name-owner', () => {
+                /* 常駐プロセスが落ちたら再起動する */
+                if (!this._proxy.g_name_owner)
+                    this._ensureDaemon();
+                this._refresh();
+            });
+            this._proxy.connect('g-signal',
+                (proxy, senderName, signalName, params) => {
+                    if (signalName === 'StateChanged')
+                        this._refresh();
+                });
+        }
+    }
 
     /* ===== D-Bus ===== */
 
-    _onProxyInit: function(proxy, result) {
-        try {
-            proxy.init_finish(result);
-        } catch (e) {
-            global.logError('uim-toolbar: proxy init failed: ' + e.message);
-        }
-        if (!proxy.g_name_owner)
+    on_applet_added_to_panel() {
+        if (this._proxy && !this._proxy.g_name_owner)
             this._ensureDaemon();
         this._refresh();
-    },
+    }
 
-    _onNameOwnerChanged: function(proxy) {
-        /* 常駐プロセスが落ちたら再起動する */
-        if (!proxy.g_name_owner)
-            this._ensureDaemon();
-        this._refresh();
-    },
-
-    _onSignal: function(proxy, senderName, signalName, params) {
-        if (signalName === 'StateChanged')
-            this._refresh();
-    },
-
-    _ensureDaemon: function() {
+    _ensureDaemon() {
         try {
             let subprocess = Gio.Subprocess.new([DAEMON_COMMAND],
                                                  Gio.SubprocessFlags.NONE);
-            subprocess.wait_async(null, Lang.bind(this, function(proc, res) {
+            subprocess.wait_async(null, (proc, res) => {
                 try {
                     proc.wait_finish(res);
                 } catch (e) {
                     /* 常駐なので終了しないはず。失敗したなら何もしない */
                 }
-            }));
+            });
         } catch (e) {
             global.logError('uim-toolbar: failed to launch ' +
                             DAEMON_COMMAND + ': ' + e.message);
         }
-    },
+    }
 
-    _callSync: function(method, params) {
+    _callSync(method, params) {
         if (!this._proxy || !this._proxy.g_name_owner)
             return null;
         try {
@@ -112,15 +104,17 @@ UimToolbarApplet.prototype = {
                             e.message);
             return null;
         }
-    },
+    }
 
     /* ===== 状態取得・表示 ===== */
 
-    _refresh: function() {
+    _refresh() {
         let reply = this._callSync('GetState', null);
         if (!reply)
             return;
-        let json = reply.get_child(0).get_string()[0];
+        /* GetState の戻り値は (s)。unpack() の要素は GLib.Variant なので
+         * get_string() で JS 文字列にする */
+        let json = reply.unpack()[0].get_string()[0];
         try {
             this._state = JSON.parse(json);
         } catch (e) {
@@ -128,51 +122,35 @@ UimToolbarApplet.prototype = {
             return;
         }
         this._updateDisplay();
-    },
+    }
 
-    _updateDisplay: function() {
+    _updateDisplay() {
         let state = this._state;
         if (!state)
             return;
 
-        if (!state.visible) {
-            this.actor.visible = false;
-            return;
-        }
-        this.actor.visible = true;
+        this.actor.visible = !!state.visible;
 
-        this.set_app_label(state.label);
-        this.set_app_tooltip(state.tooltip || state.label);
+        this.set_applet_label(state.label);
+        this.set_applet_tooltip(state.tooltip || state.label);
 
-        /* アイコンファイルがあればアイコン表示、無ければラベル表示 */
+        /* uim がアイコンファイルを渡す場合はパス指定アイコン、
+         * 無ければシンボリックのキーボードアイコン */
         if (state.icon_path) {
-            try {
-                let file = Gio.File.new_for_path(state.icon_path);
-                let icon = new Gio.FileIcon({ file: file });
-                if (!this._iconActor) {
-                    this._iconActor = new St.Icon({
-                        gicon: icon,
-                        icon_size: 16,
-                    });
-                    this._iconActor.visible = true;
-                    this.set_app_icon(this._iconActor);
-                } else {
-                    this._iconActor.gicon = icon;
-                }
-            } catch (e) {
-                /* アイコン読み込み失敗時はラベルのみ */
-            }
+            this.set_applet_icon_path(state.icon_path);
+        } else {
+            this.set_applet_icon_symbolic_name('input-keyboard');
         }
-    },
+    }
 
     /* ===== 左クリック: IM 選択メニュー ===== */
 
-    on_applet_clicked: function(event) {
+    on_applet_clicked(event) {
         this._buildImMenu();
         this.menu.toggle();
-    },
+    }
 
-    _buildImMenu: function() {
+    _buildImMenu() {
         this.menu.removeAll();
         this._menuItems = [];
 
@@ -188,23 +166,45 @@ UimToolbarApplet.prototype = {
 
         for (let i = 0; i < state.leaves.length; i++) {
             let leaf = state.leaves[i];
-            let item = new PopupMenu.PopupRadioMenuItem(leaf.label,
-                                                        leaf.selected);
+            /* Cinnamon の popupMenu.js に PopupRadioMenuItem は無い。
+             * PopupMenuItem + setOrnament(DOT) が Cinnamon 流儀 */
+            let item = new PopupMenu.PopupMenuItem(leaf.label);
+            item.setOrnament(PopupMenu.OrnamentType.DOT, leaf.selected);
             if (leaf.tooltip)
                 item.label.set_tooltip_text(leaf.tooltip);
             item.action = leaf.action;
-            item.connect('activate', Lang.bind(this, function(menuItem) {
+            item.connect('activate', (menuItem) => {
                 this._callSync('SwitchIm',
-                               GLib.Variant.new('(s)', [menuItem.action]));
-            }));
+                               new GLib.Variant('(s)', [menuItem.action]));
+            });
             this.menu.addMenuItem(item);
             this._menuItems.push(item);
         }
-    },
+    }
 
-    /* ===== 右クリック: ヘルパー起動メニュー（GTK3 版右クリックメニュー相当） ===== */
+    /* ===== 右クリック: ヘルパー起動メニュー ===== */
 
-    _buildContextMenu: function() {
+    /* appletManager が main() 直後に 1 回呼ぶ。ここでヘルパー起動項目を
+     * 追加してから super を呼ぶと、Cinnamon 既定の "About..."/"Remove"
+     * も自動で追加される。 */
+    finalizeContextMenu() {
+        this._buildContextMenu();
+        PanelApplet.TextIconApplet.prototype.finalizeContextMenu.call(this);
+    }
+
+    /* 右クリックのたびにメニューを最新の状態（GetState 結果）から
+     * 作り直す。super._onButtonPressEvent が button 3 で
+     * _applet_context_menu を開く。 */
+    _onButtonPressEvent(actor, event) {
+        if (event.get_button() === 3) {
+            this._applet_context_menu.removeAll();
+            this._buildContextMenu();
+            PanelApplet.TextIconApplet.prototype.finalizeContextMenu.call(this);
+        }
+        return PanelApplet.TextIconApplet.prototype._onButtonPressEvent.call(this, actor, event);
+    }
+
+    _buildContextMenu() {
         this._applet_context_menu.removeAll();
 
         let state = this._state;
@@ -212,10 +212,10 @@ UimToolbarApplet.prototype = {
             for (let i = 0; i < state.commands.length; i++) {
                 let cmd = state.commands[i];
                 let item = new PopupMenu.PopupMenuItem(cmd.desc);
-                item.connect('activate', Lang.bind(this, function() {
+                item.connect('activate', () => {
                     this._callSync('LaunchHelper',
-                                   GLib.Variant.new('(s)', [cmd.command]));
-                }));
+                                   new GLib.Variant('(s)', [cmd.command]));
+                });
                 this._applet_context_menu.addMenuItem(item);
             }
         }
@@ -223,23 +223,19 @@ UimToolbarApplet.prototype = {
         this._applet_context_menu.addMenuItem(
             new PopupMenu.PopupSeparatorMenuItem());
         let quitItem = new PopupMenu.PopupMenuItem('ツールバーを終了');
-        quitItem.connect('activate', Lang.bind(this, function() {
+        quitItem.connect('activate', () => {
             this._callSync('Quit', null);
-        }));
+        });
         this._applet_context_menu.addMenuItem(quitItem);
-    },
-
-    on_applet_context_menu_open: function() {
-        this._buildContextMenu();
-    },
+    }
 
     /* ===== 生命周期 ===== */
 
-    on_applet_removed_from_panel: function() {
+    on_applet_removed_from_panel() {
         if (this._proxy)
             this._proxy.run_dispose();
-    },
-};
+    }
+}
 
 function main(metadata, orientation, panel_height, instance_id) {
     return new UimToolbarApplet(orientation, panel_height, instance_id);
