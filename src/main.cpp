@@ -26,7 +26,9 @@ int main(int argc, char *argv[])
     bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 
-    if (!uim_init()) {
+    /* uim_init() は成功時 OK(0)、失敗時 FAILED(-1) を返す。
+     * 参考実装（standalone-gtk.c / LXQt 版）も戻り値をチェックしていない。 */
+    if (uim_init() < 0) {
         g_set_prgname("uim-toolbar-cinnamon");
         g_message("uim-toolbar-cinnamon: uim_init() failed");
         return 1;

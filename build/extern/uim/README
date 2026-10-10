@@ -1,0 +1,16 @@
+About uim
+=========
+
+uim is a multilingual input method library and environment.
+
+Its goal is to provide simple, easily extensible and high code-quality
+input method development platform, and useful input method environment
+for users of desktop and embedded platforms.
+
+See https://github.com/uim/uim for further details.
+
+
+Acknowledgements
+----------------
+
+Part of this software had been funded by IPA (https://www.ipa.go.jp/)

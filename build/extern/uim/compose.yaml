@@ -1,0 +1,92 @@
+services:
+  arch-linux-core:
+    image: uim/uim-arch-linux-core
+    build:
+      context: ci/dockerfiles
+      dockerfile: arch-linux-core.dockerfile
+    volumes:
+      - .:/source:delegated
+  arch-linux-gtk3:
+    image: uim/uim-arch-linux-gtk3
+    build:
+      context: ci/dockerfiles
+      dockerfile: arch-linux-gtk3.dockerfile
+    volumes:
+      - .:/source:delegated
+  arch-linux-qt6:
+    image: uim/uim-arch-linux-qt6
+    build:
+      context: ci/dockerfiles
+      dockerfile: arch-linux-qt6.dockerfile
+    volumes:
+      - .:/source:delegated
+  arch-linux-tqt:
+    image: uim/uim-arch-linux-tqt
+    build:
+      context: ci/dockerfiles
+      dockerfile: arch-linux-tqt.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-core:
+    image: uim/uim-debian-13-core
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-core.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-gtk3:
+    image: uim/uim-debian-13-gtk3
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-gtk3.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-ibus:
+    image: uim/uim-debian-13-ibus
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-ibus.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-gtk4:
+    image: uim/uim-debian-13-gtk4
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-gtk4.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-qt5:
+    image: uim/uim-debian-13-qt5
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-qt5.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-qt6:
+    image: uim/uim-debian-13-qt6
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-qt6.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-release:
+    image: uim/uim-debian-13-release
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-release.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-tqt:
+    image: uim/uim-debian-13-tqt
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-tqt.dockerfile
+    volumes:
+      - .:/source:delegated
+  debian-13-wayland:
+    image: uim/uim-debian-13-wayland
+    build:
+      context: ci/dockerfiles
+      dockerfile: debian-13-wayland.dockerfile
+    volumes:
+      - .:/source:delegated

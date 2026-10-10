@@ -1,0 +1,3 @@
+[submodule "sigscheme"]
+	path = subprojects/sigscheme
+	url = https://github.com/uim/sigscheme.git

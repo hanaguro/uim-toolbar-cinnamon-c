@@ -3,6 +3,10 @@
 
 #include <glib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* uim helper 接続と prop_list_update 状態管理。
  * GTK3 ツールバー common-gtk.c の UI 部分を Cinnamon アプレットへ移し、
  * helper 接続・メッセージ解析・prop_activate 送信のみを担う。 */
@@ -69,3 +73,7 @@ void uim_toolbar_common_set_state_changed_cb(UimToolbarCommon *self,
 void uim_toolbar_common_set_main_loop(UimToolbarCommon *self,
                                       GMainLoop *loop);
 void uim_toolbar_common_quit(UimToolbarCommon *self);
+
+#ifdef __cplusplus
+}
+#endif

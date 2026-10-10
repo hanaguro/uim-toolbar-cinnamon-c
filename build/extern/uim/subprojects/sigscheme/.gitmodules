@@ -1,0 +1,3 @@
+[submodule "libgcroots"]
+	path = subprojects/libgcroots
+	url = https://github.com/uim/libgcroots.git

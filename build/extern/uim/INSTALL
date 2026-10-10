@@ -1,0 +1,36 @@
+How to build uim
+
+(See https://github.com/uim/uim/wiki/InstallUim for details)
+
+Requirements
+============
+The requirements for building uim is listed below.
+
+    * gcc
+    * GNU make
+    * iconv(3)
+    * gettext
+    * intltool
+
+Compilation
+===========
+
+First, please extract source from tar ball.
+
+      $ tar xvjf uim-x.x.x.tar.bz2
+
+Then, move to the extracted directory and run configure.
+
+      $ cd uim-x.x.x
+      $ ./configure 
+
+Finally, make and install it.
+
+      $ make
+      $ su
+      $ sudo make install
+
+By default, uim is installed under /usr/local , but this directory may
+not be on the system search path. Should that be the case, add the
+line /usr/local/lib to /etc/ld.conf and then, run ldconfig. 
+

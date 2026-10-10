@@ -126,6 +126,7 @@ target_link_libraries(uim-toolbar-cinnamon
     ${GLIB_LIBRARIES}
     ${JSONGLIB_LIBRARIES}
     ${UIM_LIBRARIES}
+    uim-custom
 )
 
 # main.cpp が <config.h>（extern/uim の configure 生成）経由で使う

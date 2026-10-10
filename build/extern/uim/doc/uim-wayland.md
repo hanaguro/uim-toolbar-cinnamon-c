@@ -1,0 +1,128 @@
+# uim-wayland
+
+`uim-wayland` is an input method for Wayland compositors that implement
+`zwp_input_method_v1`: KWin (Plasma) and Weston. It makes uim usable in
+applications that talk to the compositor with `text-input` instead of
+loading a GTK or Qt input module, for example Chromium and Electron
+applications running natively on Wayland.
+
+With `zwp_input_method_v1` the compositor starts the input method
+process itself and hands it a context whenever a text field gets
+focus. Key events arrive through a keyboard grab, go through libuim,
+and the results are sent back as preedit and committed text. Keys uim
+doesn't consume are forwarded to the focused application. Candidates
+are drawn on a `zwp_input_panel_v1` overlay panel, which the
+compositor places next to the text cursor. A click on a candidate
+selects it, as the arrow keys would, and the wheel turns the page.
+The candidates use the desktop's interface font, the `font-name` key
+of `org.gnome.desktop.interface` that GTK uses too and that Plasma
+keeps in step with its own font setting. Without that schema they use
+`sans 11`.
+uim-helper-server is used as in the other bridges, so the toolbar,
+`uim-im-switcher-cli` and input method changes made by other uim
+processes all work.
+
+The text around the cursor is passed to uim, so input methods that
+look at what has already been typed work. Fields that take no composed
+text get the keys as they are: a password field, one that hides what
+is typed or marks it as sensitive, and one that takes only digits, a
+phone number, a date or a time.
+
+GNOME's Mutter doesn't implement the input-method side of the
+protocol, so `uim-wayland` can't be used there.
+
+## Build
+
+`uim-wayland` is built when `wayland-client`, `wayland-protocols`,
+`wayland-scanner`, `xkbcommon`, `cairo`, `pangocairo` and `gio-2.0`
+are found.
+Pass `--without-wayland` to `configure` to disable it.
+
+## KWin
+
+Select "uim" as the virtual keyboard in System Settings, or set it in
+`~/.config/kwinrc`:
+
+```ini
+[Wayland]
+InputMethod=/usr/share/applications/uim-wayland.desktop
+```
+
+For testing inside another session, run a nested KWin and pass the
+input method on the command line:
+
+```sh
+KWIN_DEVICE_SKIPS_INPUT_METHOD=none \
+  dbus-run-session kwin_wayland --xwayland --socket=wayland-1 \
+  --inputmethod /usr/bin/uim-wayland konsole
+```
+
+Applications started with `WAYLAND_DISPLAY=wayland-1` then use uim.
+
+`KWIN_DEVICE_SKIPS_INPUT_METHOD` must be set to something (any value
+that isn't a device name) in a nested session. KWin compares the
+variable's comma-separated list with the name of the device a key
+came from, and the devices of the nested Wayland backend have an
+empty name, which matches the empty list. Without the variable KWin
+still sends modifiers to the input method but never any key.
+
+## Weston
+
+Set the path in `weston.ini`:
+
+```ini
+[input-method]
+path=/usr/bin/uim-wayland
+```
+
+Weston only implements `text-input-unstable-v1` on the application
+side, so use `weston-editor` to test.
+
+## Debugging
+
+`UIM_WAYLAND_DEBUG=1` in the environment of `uim-wayland` logs
+activation, the selected input method and every key with its uim
+key code and whether uim consumed it. `WAYLAND_DEBUG=1` prints every
+protocol message.
+
+KWin passes its own environment to the input method, so set the
+variables on `kwin_wayland` itself:
+
+```sh
+UIM_WAYLAND_DEBUG=1 dbus-run-session kwin_wayland ... --inputmethod /usr/bin/uim-wayland
+```
+
+`KWIN_IM_WAYLAND_DEBUG=1` makes KWin set `WAYLAND_DEBUG=1` for the
+input method. Don't put variables in the `--inputmethod` value: KWin
+splits it into a program and arguments, so `VAR=1 /usr/bin/uim-wayland`
+tries to run a program called `VAR=1` and nothing starts. Weston's
+`path=` does accept `VAR=1 /usr/bin/uim-wayland`.
+
+The messages `uim-wayland` prints go to the stderr of the compositor.
+If the input method doesn't start, look there first.
+
+## Limitations
+
+- A pending preedit is dropped when the text field loses focus.
+  Applications differ in what they do with it (Chromium commits it),
+  and `zwp_input_method_v1` gives no way to tell them anything after
+  deactivation.
+- Key repeat depends on the compositor. `uim-wayland` doesn't repeat
+  keys itself, it only acts on the repeat events it receives while
+  holding the keyboard grab. KWin sends them when the focused
+  application relies on compositor-side repeat, and asks the input
+  method to do the repeating otherwise, in which case keys don't
+  repeat.
+- The candidate window is drawn at the integer scale the compositor
+  asks for with `wl_surface.preferred_buffer_scale`. A compositor
+  without it, or a build against wayland older than 1.22, gets scale
+  1, which looks blurry on a scaled output. On a fractional scale the
+  compositor scales the buffer down, so it is slightly soft. It
+  doesn't set a cursor image, so what the pointer looks like over it
+  is up to the compositor.
+- `text-input-v3` has no preedit styling, so applications using it,
+  Chromium among them, show the preedit without underlines. KWin does
+  turn the highlighted segment into a selection range, so the segment
+  being converted is still marked. Applications on `text-input-v1` or
+  `text-input-v2`, which includes Qt applications under KWin, get the
+  styling as sent.

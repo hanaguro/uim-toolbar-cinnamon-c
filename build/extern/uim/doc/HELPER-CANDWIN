@@ -1,0 +1,137 @@
+To separate GUI toolkit dependent part from independent part, uim-xim
+uses external helper program to show candidate selection window.  This
+file describes communication protocol between uim-xim and its helper
+program .
+
+uim-candwin-[xaw|gtk|qt] is executed from uim-xim and receives/sends
+messages via pipe.
+
+               message
+  +-------+ ------------>  +--------------+
+  |uim-xim|    (pipe)      |HELPER-CANDWIN|
+  +-------+ <------------  +--------------+
+               message
+
+Recieving Message format BNF
+  session  = messages
+  messages = messages message | message
+  message  = (activate   |
+	      select     |
+	      move       |
+	      show       |
+	      hide       |
+	      deactivate |
+	      set_nr_candidates |
+	      set_page_candidates |
+	      show_page  |
+	      show_caret_state |
+	      update_caret_state |
+	      hide_caret_state) "\f"
+  charset_specifier = "charset=" charset "\f"
+  charset = "UTF-8" | "EUC-JP" | "GB18030" |
+            <or any name that can be specified as iconv_open(3) argument>
+  str = str <any characters except for '\0', '\a', or '\f'> | ""
+  num = /[0-9]+/
+
+  1. activate
+   Activating the candidate window with display_limit value,
+   and add heading labels and candidates to it. The order of
+   candidates must be as is.
+
+   activate = "activate" "\f" label
+   label = charset_specifier display_limit_str "\f" candidate_strs
+   display_limit_str = display_limit_label num
+   display_limit_label = "display_limit="
+   candidate_strs = candidate_str candidate_str candidate_str ....
+   candidate_str = cand_head "\a" cand_candidate "\a" cand_annotation "\f"
+   cand_head = str
+   cand_candidate = str
+   cand_annotation = str
+
+  2. select
+    Selecting the specified candidate in helper-candwin window.
+
+    select = "select" "\f" num "\f"
+
+  3. move
+    Moving the helper-candwin window.
+
+    move = "move" "\f" XPos "\f" YPos "\f"
+    XPos = num
+    YPos = num
+
+  4. show
+    Showing the candidate window
+
+    show = "show" "\f"
+
+  5. hide
+    Hide the candidate window
+
+    hide = "hide" "\f"
+
+  6. deactivate
+    Deactivating the candidate window
+
+    deactivate = "deactivate" "\f"
+
+  7. set_nr_candidates
+    Activating the candidate window with nr_cands and display_limit
+    value.  This can be used as a replacement of 'activate' message in
+    combination with following 'set_page_candidates' and 'show_page'
+    message for the efficient candidate page handling.
+
+    activate = "set_nr_candidates" "\f" nr_cands "\f" display_limit "\f"
+    nr_cands = num
+    display_limit = num
+
+  8. set_page_candidates
+    Set heading labels and candidates to the selected page of the
+    candidate window. The order of candidates must be as is.
+
+    set_page_candidates = "set_page_candidates" "\f" label
+    label = charset_specifier page_str "\f" candidate_strs
+    page_str = page_label num
+    page_label = "page="
+    candidate_strs = candidate_str candidate_str candidate_str ....
+    candidate_str = cand_head "\a" cand_candidate "\a" cand_annotation "\f"
+    cand_head = str
+    cand_candidate = str
+    cand_annotation = str
+
+  9. show_page
+    Selecting the specified page of the candidate window.
+
+    show_page = "show_page" "\f" num "\f"
+
+  10. show_caret_state
+    Show caret state of the input mode
+
+    show_caret_state = "show_caret_state" "\f" timeout "\f" caret_state "\f"
+    timeout = num
+    caret_state = str
+
+  11. update_caret_state
+    Update caret state of the input mode
+
+    update_caret_state = "update_caret_state" "\f"
+
+  12. hide_caret_state
+    Hide caret state of the input mode
+
+    hide_caret_state = "hide_caret_state" "\f"
+
+Sending Message format BNF
+  session  = messages
+  messages = messages message | message
+  message  = ( index ) "\n"
+  charset_specifier = "charset=" charset "\n"
+  charset = "UTF-8" | "EUC-JP" | "GB18030" |
+            <or any name that can be specified as iconv_open(3) argument>
+  str = str <any characters except for '\0', '\t' or '\n'> | ""
+  num = /[0-9]+/
+
+  1. index
+    Sending index of selected candidate with mouse pointer to uim-xim.
+
+    index = "index" "\n" num "\n"

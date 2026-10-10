@@ -1,0 +1,2008 @@
+This document tracks API/ABI compatibility changes for convenience of
+developers.
+
+Each change consist of following fields. All fields are required.
+
+  - Summary
+    Short description of the change
+
+  - Affects
+    Who will be suffered
+    * IM developers
+    * Bridge developers
+    * Helper program developers
+    * uim developers
+
+  - Updates
+    What has been broken, added or removed
+    * libuim ABI
+    * C API
+    * Scheme API
+    * Helper protocol
+
+  - Version
+    Which version number of source release performs the change
+
+  - Revision
+    Which revision(s) performs the change. Enumerate as comma separated
+    revision numbers if performed by several commit
+
+    When freedesktop.org had been compromised, we had reset the
+    repository. Because this had also reset revision number, we
+    describe such new revision numbers as 'ac40' to distinguish from
+    old one. 'ac' stands for 'after compromised'.
+
+  - Date
+    When the change committed into the repository
+
+  - Modifier
+    Who had applied the change
+
+  - Related
+    What issues are related to this change. Describe in free format. But if
+    you refer items in the bug tracking system, describe them as "bug #1450,
+    #1451"
+
+  - URL
+    Write URL(s). Use subsequent line(s) with 2 space prefix to describe
+    multiple URLs (i.e. describe one URL per line)
+
+  - Changes
+    Which functions or structs have been changed. Describe one item per line
+    with 2 space prefix for clear view
+
+  - Description
+    Detailed description of the change
+
+
+The changes are described below in most recently updated order.
+------------------------------------------------------------------------------
+Summary: New API for delay showing candidate window
+Affects: IM developers, Bridge developers
+Updates: C API, Scheme API
+Version: 1.8.0
+Revision: ac7324
+Date: 2011-10-15
+Modifier: KIHARA Hideto
+Related:
+URL:
+  https://www.mail-archive.com/uim-ja@googlegroups.com/msg00282.html (Japanese)
+Changes:
+  (new) uim_set_delay_candidate_selector_cb
+  (new) uim_delay_activating
+  (new) im-delay-activate-candidate-selector
+  (new) im-delay-activate-candidate-selector-supported?
+  (new) im-set-delay-activating-handler!
+Description:
+  New API for delay showing candidate window for use with prediction.
+  Purpose:
+    - Not to disturb user input by prediction or help.
+  Problem:
+    - It is annoyance that candidate window filckers when IM shows
+      help on candidate window for every key type.
+    - User must wait while IM predicts candidates before typed key
+      is processed even when prediction is not needed.
+    - While user types smoothly, there is no need to show help or
+      prediction.
+  Effect:
+    - IM can show prediction candidates only when user does not type
+      anything while specified delay seconds elapses.
+  Sequence:
+   [candwin]               [uim]                      [tutcode.scm]
+      uim_set_delay_candidate_selector_cb(delay_activate_cb)
+      ----------------------->
+                     im-set-delay-activating-handler!(delay-activating-handler)
+                             <-----------------------------
+
+                            im-delay-activate-candidate-selector-supported?
+                             <-----------------------------
+                             -------------#t-------------->
+                            im-delay-activate-candidate-selector(delaysecs)
+                             <-----------------------------
+      delay_activate_cb(delaysecs)
+      <----------------------
+   [set timer with delaysecs]
+   ...
+   [timeout]
+          uim_delay_activating
+      ----------------------->
+                             delay-activating-handler
+                             ----------------------------->
+                                                          [make candidate list]
+                             [return nr,display_limit,selected_index]
+                             <-----------------------------
+      [return nr,display_limit,selected_index]
+      <----------------------
+   [get and display candidates in an ordinary way]
+   [if selcted_index >= 0, select candidate]
+------------------------------------------------------------------------------
+Summary: Support range for table custom type
+Affects: IM developers, Helper program developers
+Updates: Scheme API, C API (uim-custom)
+Version: 1.8.0
+Revision: ac7305
+Date: 2011-09-16
+Modifier: Muneyuki Noguchi
+URL:
+Changes:
+   (update) custom-table?
+   (update) custom-range
+   (update) struct uim_custom_range
+Description:
+  Add support range to the table custom type. This range represents
+  a horizontal header for a table.
+------------------------------------------------------------------------------
+Summary: New table custom type
+Affects: IM developers, Helper program developers
+Updates: Scheme API, C API (uim-custom)
+Version: 1.8.0
+Revision: ac7283
+Date: 2011-09-09
+Modifier: Muneyuki Noguchi
+URL:
+  https://www.mail-archive.com/uim-en@googlegroups.com/msg00362.html
+Changes:
+   (update) custom-validator-alist
+      (new) custom-table?
+      (new) custom-list-as-table
+   (update) custom-value-as-literal
+   (update) enum UCustomType
+   (update) struct uim_custom_value
+Description:
+  Add a new table custom type. This custom type can be used to modify
+  2D array data.
+------------------------------------------------------------------------------
+Summary: Add an internal variable to count uim_init() and uim_quit()
+Affects: None
+Updates: libuim ABI
+Version: 1.7.0
+Revision: ac7020
+Date: 2011-05-07
+Modifier: Etsushi
+Related:
+URL:
+Changes:
+  (added) uim_init_count
+Description:
+  An internal variable to count uim_init() and uim_quit() has been added.
+  Normally, this variable has no meaning for normal libuim users.  It's
+  only used in libuim-counted-init.a convenience library.
+------------------------------------------------------------------------------
+Summary: Support multiple paths by LIBUIM_SCM_FILES
+Affects: uim developers
+Updates: Scheme API
+Version: 1.6.0
+Revision: ac6603
+Date: 2010-07-28
+Modifier: Etsushi
+Related:
+URL:
+Changes:
+  (changed) make-scm-pathname
+Description:
+  Change the return type as a list to support multiple paths.
+------------------------------------------------------------------------------
+Summary: New custom API to save custom variable.
+Affects: Helper program developers
+Updates: C API
+Version: 1.6.0
+Revision: ac6505
+Date: 2010-07-15
+Modifier: Etsushi
+Related:
+URL:
+Changes:
+  (added) uim_custom_save_custom
+Description:
+  Save a primary custom group file of which the selected custum
+  variable belongs.
+------------------------------------------------------------------------------
+Summary: New helper protocol messages for uim-im-switcher
+Affects: Helper program developers
+Updates: Helper protocol
+Version: 1.6.0
+Revision: ac6364, ac6365
+Date: 2010-05-06
+Modifier: Muneyuki Noguchi
+Related: bug #2112
+URL:
+Changes:
+  (new) im_switcher_start
+  (new) im_switcher_quit
+Description:
+  Add messages to make uim-im-switcher single instance by quitting
+  a newly started uim-im-switcher when another uim-im-switcher exists.
+------------------------------------------------------------------------------
+Summary: rk-expect-key? is added in rk.scm
+Affects: IM developers
+Updates: Scheme API
+Version: 1.6.0
+Revision: ac6332, ac6335
+Date: 2010-04-22
+Modifier: Etsushi Kato
+Related: uim-tutcode
+URL:
+Changes:
+  (new) rk-expect-key?
+Description:
+  Since rk-expect used in tutcode.scm is relatively slow,
+  rk-expect-key? is added.
+------------------------------------------------------------------------------
+Summary: Update helper-candwin protocol for sending message
+Affects: Helper program developers
+Updates: Helper-candwin protocol
+Version: 1.6.0
+Revision: ac6331, ac6339
+Date: 2010-04-21
+Modifier: Etsushi Kato
+Related: uim-prime, annotation
+URL:
+Changes:
+  (update) "activate"
+  (update) "select"
+  (update) "move"
+  (update) "show"
+  (update) "hide"
+  (update) "deactivate"
+  (update) "set_nr_candidates"
+  (update) "set_page_candidates"
+  (update) "show_caret_state"
+  (update) "update_caret_state"
+  (update) "hide_caret_state"
+Description:
+  Modify helper-candwin message from uim-xim to uim-candwin-{gtk,qt} to
+  cope with uim-prime's candidate string that may contain '\t'. Also
+  sepeartor of messages has been modified to use '\f' instead of '\n'.
+------------------------------------------------------------------------------
+Summary: New helper-candwin protocol about setting the candidates
+Affects: Helper program developers
+Updates: Helper-candwin protocol
+Version: 1.5.4
+Revision: ac5584
+Date: 2008-10-07
+Modifier: Etsushi Kato
+Related:
+URL:
+Changes:
+  (new) "set_nr_candidates"
+  (new) "set_page_candidates"
+  (new) "show_page"
+Description:
+  New helper-candwin message from uim-xim to uim-candwin-{gtk,qt} for 
+  the light weight page handling.
+------------------------------------------------------------------------------
+Summary: Plugin loding and unloading schemes are changed
+Affects: uim developers, IM developers
+Updates: libuim ABI, Scheme API
+Version: 1.6.0
+Revision: ac5424, ac5456, ac5457, ac6371
+Date: 2008-04-17 - 2010-05-07
+Modifier: Masahito Omote, YamaKen, Etsushi
+Related:
+URL: https://www.mail-archive.com/uim-en@googlegroups.com/msg00104.html, https://www.mail-archive.com/uim-en@googlegroups.com/msg00110.html
+Changes:
+     (added) module-load
+     (added) require-dynlib
+     (added) dynlib-unload
+     (added) %%dynlib-bind
+     (added) %%dynlib-unbind
+     (removed) load-plugin
+     (removed) unload-plugin
+Description:
+  New API for loding/unloading modules (see below) and dynlib
+  rewritten in C and Scheme. module-load is the
+  same ones as obsoleted load-plugin, which is now
+  written in Scheme.  require-dynlib and dynlib-unload are written in
+  Scheme for the purpose of loading dynlib from Scheme code.
+  %%dynlibe-bind and %%dynlib-unbind are written in C for the purpose
+  of binding/unbinding library pointer bounded by dlopen and C
+  function pointers.
+
+  module-load is intended to be used for loading modules (Scheme
+  and dynlib pair of input method module, or Scheme only module) from
+  internal Scheme code, require-module.
+  require-dynlib and dynlib-unload are encouraged when you want to
+  load/unload dynlib from any Scheme code.
+  ------------------------------------------------------------------------------
+Summary: Feature provision of 'uim'
+Affects: uim developers, IM developers
+Updates:
+Version: 1.5.0
+Revision: ac5370, ac5464
+Date: 2008-03-31, 2008-04-29
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+Description:
+  To allow (provided? "uim") and (cond-expand (uim ...)), init_uim()
+  calls (provide "uim").
+------------------------------------------------------------------------------
+Summary: Responsibility migration of gettext() invocation
+Affects: Helper program developers, Bridge developers
+Updates: Scheme API, C API
+Version: 1.5.0
+Revision: ac4336, ac4337, ac4352, ac4394
+Date: 2007-01-09, 2007-01-12
+Modifier: YamaKen
+Related: uim-scm API reorganization in uim 1.5.0
+URL:
+Changes:
+     (changed) custom-label
+     (changed) custom-desc
+     (changed) custom-group-label
+     (changed) custom-group-desc
+     (changed) custom-choice-label
+     (changed) custom-choice-desc
+     (changed) lang-code->lang-name
+     (changed) uim_get_language_name_from_locale()
+Description:
+  gettext()ing strings returned by above APIs in libuim or Scheme
+  codes was a design error since it assumes existence of the concept
+  "system-wide character encoding". But on current uim API, character
+  encoding is not a system-wide property but per-IM-context one. So
+  above APIs cannot determine appropriate encoding for the result
+  since some IM contexts may have different character encoding. To
+  avoid this problem, they now return raw untranslated strings. Client
+  codes are responsible to translate them. But to remain legacy
+  uim-custom codes unchanged, API functions exported via uim-custom.h
+  are still returns TRANSLATED strings.
+------------------------------------------------------------------------------
+Summary: Experimental user notification facility (uim-notify)
+Affects: uim developers, IM developers
+Updates: C API, Scheme API
+Version: 1.5.0
+Revision: ac5061-ac5067, ac5073-ac5084, ac5093-ac5094, ac5107,
+          ac5126-ac5138, ac5147, ac5150, ac5153-ac5156, ac5159-ac5163
+Date: 2007-09-29 - 2008-02-12
+Modifier: Iwata, YamaKen, Etsushi Kato
+Related: Exception-based libuim error handling
+URL:
+  https://www.mail-archive.com/uim-en@googlegroups.com/msg00048.html
+Changes:
+      (new) uim_notify_init()
+      (new) uim_notify_quit()
+      (new) uim_notify_load()
+      (new) uim_notify_get_desc()
+      (new) uim_notify_info()
+      (new) uim_notify_fatal()
+      (new) uim_notify_plugin_init()
+      (new) uim_notify_plugin_quit()
+      (new) uim_notify_plugin_get_desc()
+      (new) uim_notify_plugin_info()
+      (new) uim_notify_plugin_fatal()
+      (new) uim-notify-get-plugins
+      (new) uim-notify-load
+      (new) uim-notify-info
+      (new) uim-notify-fatal
+Description:
+  To notify users important messages from IM and libuim such as
+  "Opening dictionary file 'foo.dic' failed.", uim need some
+  sophisticated mechanism to achieve it. This API set and
+  implementation provides an experimental solution for it. The API and
+  the notification agent plugins, and module and code organizations
+  are all experimental although working well. We should redesign the
+  mechanism once well experienced.
+------------------------------------------------------------------------------
+Summary: New utility procedures in uim 1.5.0
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 1.5.0
+Revision: ac5264, ac5276, ac5294
+Date: 2008-03-02
+Modifier: Iwata
+Related: uim-sj3
+URL:
+Changes:
+      (new) user-name
+      (new) home-directory
+      (new) sleep
+      (new) time
+      (new) difftime
+Description:
+------------------------------------------------------------------------------
+Summary: Change API to know operations are success or not
+Affects: uim developers, Helper program developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac5264
+Date: 2008-03-02
+Modifier: Iwata
+Related:
+URL:
+Changes:
+  (changed) uim_helper_get_pathname()
+Description:
+------------------------------------------------------------------------------
+Summary: New API for client encoding change
+Affects: bridge developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac5069, ac5071
+Date: 2007-12-29
+Modifier: Etsushi, YamaKen
+Related: bug #13622
+URL:
+Changes:
+      (new) uim_set_client_encoding()
+Description:
+  Some bridges such as uim.el need to change its client-side encoding
+  in response to an IM-side encoding change caused by an IM-switching
+  and notified via the configuration_changed callback. This API
+  provides the proper way for it.
+------------------------------------------------------------------------------
+Summary: uim-scm API truth predicates reorganization in uim 1.5.0
+Affects: uim developers, IM developers
+Updates: C API (uim-scm), libuim ABI
+Version: 1.5.0
+Revision: ac4876
+Date: 2007-08-20
+Modifier: YamaKen
+Related: uim-scm API reorganization in uim 1.5.0
+	 Deprecate truth predicates for uim-scm
+URL:
+Changes:
+         (new) uim_scm_truep()
+         (new) uim_scm_falsep()
+     (changed) FALSEP()
+     (changed) TRUEP()
+  (deprecated) UIM_SCM_FALSEP()
+  (deprecated) UIM_SCM_NFALSEP()
+     (removed) NFALSEP()
+     (removed) NTRUEP()
+Description:
+  - uim-scm truth predicates are now function-based. uim_scm_falsep(obj) as
+    (not obj), and uim_scm_truep(obj) as (if obj #t #f). Don't misunderstand
+    uim_scm_truep(obj) as if (eq? obj #t)
+  - Former main predicates UIM_SCM_FALSEP() and UIM_SCM_NFALSEP() are
+    deprecated
+  - FALSEP() is removed from uim-scm.h, but can be used via uim-scm-abbrev.h
+  - TRUEP() is previously defined as (eq? obj #t) in uim-scm.h. It is now
+    redefined as (if obj #t #f) in uim-scm-abbrev.h and removed from uim-scm.h
+  - NFALSEP() and NTRUEP() are removed from uim-scm.h
+------------------------------------------------------------------------------
+Summary: Fix invalid type assumption on PIDs
+Affects: IM developers, uim developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4840
+Date: 2007-08-13
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+  (changed) uim_ipc_open_command()
+  (changed) uim_ipc_open_command_with_option()
+  (changed) uim_ipc_send_command()
+Description:
+  Fixed invalid type int for PIDs with pid_t. 64-bit systems are
+  possibly (sizeof(int) < sizeof(pid_t))
+------------------------------------------------------------------------------
+Summary: Bit width extension of uim_scm_c_bool() and uim_scm_make_bool()
+Affects: uim developers
+Updates: C API (uim-scm), libuim ABI
+Version: 1.5.0
+Revision: ac4820
+Date: 2007-08-11
+Modifier: YamaKen
+Related: uim-scm API reorganization in uim 1.5.0
+         uim_scm_array2list()
+         uim_scm_list2array()
+URL:
+Changes:
+  (changed) uim_scm_c_bool()
+  (changed) uim_scm_make_bool()
+Description:
+  To make passing these 2 functions to the array<->list conversion
+  functions directly, the C side of bool representation is changed
+  from int to long. This change is required for 64-bit platforms.
+------------------------------------------------------------------------------
+Summary: Exception-based libuim error handling
+Affects: uim developers
+Updates: internal C API
+Version: 1.5.0
+Revision: ac4814, ac4815, ac4829
+Date: 2007-08-11, 2007-08-12
+Modifier: YamaKen
+Related: Fatal error handling helpers for plugin developers
+	 uim-scm API reorganization in uim 1.5.0
+         uim_scm_error()
+         uim_scm_error_obj()
+         uim_scm_set_fatal_error_hook()
+URL:
+Changes:
+      (new) uim_catch_error_begin()
+      (new) uim_catch_error_end()
+      (new) uim_throw_error()
+Description:
+------------------------------------------------------------------------------
+Summary: Fatal error handling helpers for plugin developers
+Affects: IM developers, uim developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4814, ac4816
+Date: 2007-08-11
+Modifier: YamaKen
+Related: Exception-based libuim error handling
+	 uim-scm API reorganization in uim 1.5.0
+         uim_scm_error()
+         uim_scm_error_obj()
+URL:
+Changes:
+      (new) uim_fatal_error()
+      (new) uim_malloc()
+      (new) uim_realloc()
+      (new) uim_calloc()
+      (new) uim_strdup()
+Description:
+------------------------------------------------------------------------------
+Summary: New utility procedures in uim 1.5.0
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 1.5.0
+Revision: ac4704
+Date: 2007-07-11, 2007-07-22
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+      (new) writeln
+      (new) uim-version
+Description:
+------------------------------------------------------------------------------
+Summary: Renaming of integer-based char procedures
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 1.5.0
+Revision: ac4708, ac4709, ac4710
+Date: 2007-07-11
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+  (renamed) char-control?
+  (renamed) char-upper-case?
+  (renamed) char-lower-case?
+  (renamed) char-alphabetic?
+  (renamed) char-numeric?
+  (renamed) char-printable?
+  (renamed) char-graphic?
+  (renamed) char-vowel?
+  (renamed) char-consonant?
+  (renamed) char-downcase
+  (renamed) char-upcase
+      (new) ichar-control?
+      (new) ichar-upper-case?
+      (new) ichar-lower-case?
+      (new) ichar-alphabetic?
+      (new) ichar-numeric?
+      (new) ichar-printable?
+      (new) ichar-graphic?
+      (new) ichar-vowel?
+      (new) ichar-consonant?
+      (new) ichar-downcase
+      (new) ichar-upcase
+  (renamed) string->char
+      (new) string->ichar
+  (renamed) string->printable-char
+      (new) string->printable-ichar
+  (renamed) string->letter
+      (new) string->alphabetic-ichar
+  (renamed) numeral-char->number
+      (new) numeric-ichar->integer
+  (removed) control-char?
+  (removed) alphabet-char?
+  (removed) numeral-char?
+  (removed) usual-char?
+  (removed) to-lower-char
+Description:
+  The integer-based char-* procedures have been renamed to ichar-* to
+  distinguish from and coexist with R5RS ones
+------------------------------------------------------------------------------
+Summary: Specification changes of utility procedures
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 1.5.0
+Revision: ac4693, ac4694, ac4698, ac4699, ac4703, ac4915
+Date: 2007-07-11, 2007-09-16
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+  (removed) join
+      (new) list-join
+  (changed) string-prefix?
+  (changed) string-prefix-ci?
+  (changed) string-split
+  (changed) string-join
+  (changed) sublist
+  (changed) sublist-rel
+  (changed) file-mtime
+Description:
+  - 'join' has been replaced with 'list-join'. The args are swapped
+  - 'string-prefix?' and 'string-prefix-ci?' now rejects non-string
+    args as error instead of returning #f
+  - Now string-split produces empty strings as follows. See
+    test-uim-utils.scm for further information.
+      uim 1.4: (string-split "hhh" "h")  ==> ()
+      uim 1.5: (string-split "hhh" "h")  ==> ("" "" "" "")
+  - The 2 arguments of string-join has been swapped to be compatible
+    with SRFI-13 string-join.
+  - The meaning of 'end' arg of sublist and 'len' arg of sublist-rel has
+    been changed to correct one. See test-util.scm for further
+    information.
+      uim 1.4: (sublist     '(1) 0 0)  ==> (1)
+               (sublist-rel '(1) 0 0)  ==> (1)
+      uim 1.5: (sublist     '(1) 0 0)  ==> ()
+               (sublist-rel '(1) 0 0)  ==> ()
+  - file-mtime has been changed as raising an error instead of
+    returning #f if stat(3) is failed
+------------------------------------------------------------------------------
+Summary: SRFI-1 procedures replacement
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 1.5.0
+Revision: ac4680, ac4681
+Date: 2007-07-10
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+  (changed) iota
+  (removed) iterate-lists
+Description:
+  Various SRFI-1 procedures implemented in util.scm have been replaced
+  with the SRFI-1 feature provided by SigScheme 0.8. And the
+  misunderstood second arg meaning of 'iota' has been fixed to the
+  standard one.
+------------------------------------------------------------------------------
+Summary: Stricter argument precondition requirements
+Affects: IM developers, Bridge developers
+Updates: C API
+Version: 1.5.0
+Revision: ac4519, ac4520
+Date: 2007-03-26
+Modifier: YamaKen
+Related: uim-scm API reorganization in uim 1.5.0
+URL:
+Changes:
+  (changed) uim_scm_load_file()
+  (changed) uim_scm_require_file()
+  (changed) uim_scm_symbol_value()
+  (changed) uim_scm_symbol_value_int()
+  (changed) uim_scm_symbol_value_str()
+  (changed) uim_scm_symbol_value_bool()
+Description:
+  The arguments now requires non-NULL string
+------------------------------------------------------------------------------
+Summary: Change return type of uim_set_candidate_selector_cb() to void
+Affects: Bridge developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4388
+Date: 2007-01-11
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (changed) uim_set_candidate_selector_cb()
+Description:
+  The previous return type 'int' is useless and probably a logical typo.
+------------------------------------------------------------------------------
+Summary: Non-core API move to uim-util.h
+Affects: IM developers, Bridge developers
+Updates: C API
+Version: 1.5.0
+Revision: ac4386
+Date: 2007-01-11
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (moved) uim_ipc_open_command()
+  (moved) uim_ipc_open_command_with_option()
+  (moved) uim_ipc_send_command()
+  (moved) uim_iconv
+Description:
+  Declarations for these functions and global variable uim_iconv have been
+  moved to uim-util.h from uim.h since they are not core uim API.
+------------------------------------------------------------------------------
+Summary: Deprecation of UKey_Shift_key and so on
+Affects: Bridge developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4380
+Date: 2007-01-11
+Modifier: YamaKen
+Related: "Add new key definition" in uim 1.3.0
+URL:
+Changes:
+  (changed) enum UKey
+Description:
+  Add UKey_Shift, UKey_Control, UKey_Alt, UKey_Meta, UKey_Super, UKey_Hyper
+  to replace legacy UKey_Shift_key and so on. Bridges should replace these
+  keys although *_key is still also defined as backward compatibility.
+------------------------------------------------------------------------------
+Summary: uim_iconv_open() privatization
+Affects: Bridge developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4377
+Date: 2007-01-11
+Modifier: YamaKen
+Related: iconv.c separation on ac4376
+URL:
+Changes:
+  (removed) uim_iconv_open()
+Description:
+  Direct access to the default uim_code_converter implementation from libuim
+  users has been inhibited. It should be used as an abstract object via
+  uim_code_converter interface, such as uim_iconv->create(). Please rewrite
+  the direct use of the implementation. This is required to isolate platform
+  dependency from libuim core. Although libuim is still depending on iconv,
+  it will be a bridge-dependent optional module.
+------------------------------------------------------------------------------
+Summary: Language strings fallback to "-"
+Affects: Bridge developers, Helper program developers
+Updates: C API
+Version: 1.5.0
+Revision: ac4375
+Date: 2007-01-11
+Modifier: YamaKen
+Related: iso-639-1.def removal
+URL:
+Changes:
+  (changed) uim_get_language_name_from_locale()
+  (changed) uim_get_language_code_from_language_name()
+Description:
+  These functions previously return NULL if no language is matched. But since
+  no program is checking it, I changed it returning "-" instead of NULL. It
+  is safer than previous behavior, and will not cause compatibility problems.
+------------------------------------------------------------------------------
+Summary: IM and context management concentration into Scheme
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 1.5.0
+Revision: ac4354, ac4359, ac4382, ac4385
+Date: 2007-01-10 - 2007-01-11
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+         (new) im-retrieve-context
+         (new) im-raise-configuration-change
+         (new) uim-switch-im
+         (new) context-uc
+         (new) context-set-uc!
+  (deprecated) context-id
+  (deprecated) context-set-id!
+     (changed) create-context
+     (changed) im-switch-im
+     (removed) find-context
+     (removed) im-register-im
+Description:
+  The complex and problematic IM registration and context management divided
+  in C has been resolved. Now all IM and context management data is
+  concentrated into Scheme as one-source management. This has been resolved
+  C-data and Scheme-data synchronization problem on im-switching and so on.
+  
+  - create-context now returns created context
+  - The member 'id' of context record has been replaced with 'uc'. Each IMs
+    should follow the renaming although backward compatiblity procedure is
+    provided
+  - im-switch-im has been replaced with Scheme-implemented one. This resolved
+    the context inconsistency problem between C and Scheme
+------------------------------------------------------------------------------
+Summary: uim_symbol_value_str removal
+Affects: IM developers, Bridge developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4349
+Date: 2007-01-09
+Modifier: YamaKen
+Related: uim-scm API reorganization in uim 1.5.0
+URL:
+Changes:
+  (removed) uim_symbol_value_str()
+Description:
+  Use uim_scm_symbol_value_str() instead.
+------------------------------------------------------------------------------
+Summary: uim-scm API reorganization in uim 1.5.0
+Affects: uim developers, IM developers
+Updates: C API, libuim ABI
+Version: 1.5.0
+Revision: ac4333, ac4334, ac4339, ac4347, ac4351-ac4353, ac4355, ac4444, ac4446, ac4751, ac4761, ac4764, ac4788, ac4808, ac4812, ac4813, ac4815, ac4817, ac4819, ac4821, ac4830, ac4870, ac4871, ac4873, ac4875, ac4877, ac4878, ac4881, ac4882, ac4884, ac4885, ac4907, ac4914, ac4920, ac4969
+Date: 2007-01-09 - 2007-09-16
+Modifier: YamaKen
+Related: uim-scm API truth predicates reorganization in uim 1.5.0
+	 SigScheme introduction to uim
+	 Bit width extension of uim_scm_c_bool() and uim_scm_make_bool()
+URL:
+Changes:
+      (new) uim_scm_is_initialized()
+      (new) uim_scm_symbolp()
+      (new) uim_scm_gc_protectedp()
+      (new) uim_scm_gc_protected_contextp()
+      (new) uim_scm_gc_any_contextp()
+      (new) uim_scm_call()
+      (new) uim_scm_call_with_guard()
+      (new) uim_scm_callf()
+      (new) uim_scm_callf_with_guard()
+      (new) uim_scm_null()
+      (new) uim_scm_make_str_directly()
+      (new) uim_scm_error()
+      (new) uim_scm_error_obj()
+      (new) uim_scm_init()
+      (new) uim_scm_quit()
+      (new) uim_scm_set_fatal_error_hook()
+      (new) uim_scm_nullify_c_ptr()
+      (new) uim_scm_eof()
+      (new) uim_scm_array2list()
+      (new) uim_scm_list2term_array()
+      (new) uim_scm_c_char()
+      (new) uim_scm_make_char()
+      (new) uim_scm_charp()
+      (new) uim_scm_array2vector()
+      (new) uim_scm_vector2array()
+      (new) uim_scm_vectorp()
+      (new) uim_scm_vector_ref()
+      (new) uim_scm_vector_set()
+      (new) uim_scm_vector_length()
+      (new) uim_scm_set_car()
+      (new) uim_scm_set_cdr()
+      (new) uim_scm_intp()
+      (new) uim_scm_strp()
+      (new) uim_scm_listp()
+      (new) uim_scm_init_proc0()
+      (new) uim_scm_init_proc1()
+      (new) uim_scm_init_proc2()
+      (new) uim_scm_init_proc3()
+      (new) uim_scm_init_proc4()
+      (new) uim_scm_init_proc5()
+      (new) UIM_SCM_FOR_EACH()
+      (new) FOR_EACH()
+      (new) ERROR()
+      (new) ERROR_OBJ()
+      (new) ENSURE()
+      (new) ENSURE_OBJ()
+      (new) ENSURE_TYPE()
+      (new) C_BOOL()
+      (new) C_INT()
+      (new) C_CHAR()
+      (new) C_STR()
+      (new) REFER_C_STR()
+      (new) C_SYM()
+      (new) C_PTR()
+      (new) C_FPTR()
+      (new) MAKE_BOOL()
+      (new) MAKE_INT()
+      (new) MAKE_CHAR()
+      (new) MAKE_STR()
+      (new) MAKE_SYM()
+      (new) MAKE_PTR()
+      (new) MAKE_FPTR()
+      (new) INTP()
+      (new) CHARP()
+      (new) VECTORP()
+      (new) STRP()
+      (new) SYMP()
+      (new) PTRP()
+      (new) FPTRP()
+      (new) NULLP()
+      (new) CONSP()
+      (new) LISTP()
+      (new) EQ()
+      (new) CAR()
+      (new) CDR()
+      (new) SET_CAR()
+      (new) SET_CDR()
+      (new) CONS()
+      (new) LIST1()
+      (new) LIST2()
+      (new) LIST3()
+      (new) LIST4()
+      (new) LIST5()
+      (new) QUOTE()
+      (new) VECTOR_REF()
+      (new) VECTOR_SET()
+  (changed) uim_scm_length()
+  (changed) uim_scm_symbol_value_int()
+  (deprecated) uim_scm_null_list()
+  (deprecated) uim_scm_integerp()
+  (deprecated) uim_scm_stringp()
+  (deprecated) uim_scm_init_subr_0()
+  (deprecated) uim_scm_init_subr_1()
+  (deprecated) uim_scm_init_subr_2()
+  (deprecated) uim_scm_init_subr_3()
+  (deprecated) uim_scm_init_subr_4()
+  (deprecated) uim_scm_init_subr_5()
+  (removed) uim_scm_init_fsubr()
+  (removed) uim_scm_cadr()
+  (removed) uim_scm_caar()
+  (removed) uim_scm_cdar()
+  (removed) uim_scm_cddr()
+  (removed) uim_scm_reverse()
+  (removed) uim_scm_return_value()
+  (removed) uim_scm_c_list_conv_func
+  (removed) uim_scm_c_list_free_func
+  (removed) uim_scm_c_list()
+  (removed) uim_scm_c_str_failsafe()
+  (removed) uim_scm_c_str_list()
+  (removed) uim_scm_c_list_free()
+  (removed) uim_get_c_string()
+  (removed) uim_scm_repl_c_string()
+  (removed) uim_scm_int_from_c_int()
+  (removed) uim_scm_str_from_c_str()
+  (removed) uim_scm_intern_c_str()
+  (removed) uim_scm_qintern_c_str()
+  (removed) uim_scm_nth()
+  (removed) uim_scm_nreverse()
+  (removed) uim_scm_provide()
+  (removed) uim_scm_get_verbose_level()
+  (removed) uim_scm_set_verbose_level()
+  (removed) uim_scm_get_output()
+  (removed) uim_scm_set_output()
+  (removed) uim_scm_is_alive()
+  (removed) uim_scm_c_strs_into_list()
+  (removed) uim_scm_string_equal()
+  (removed) struct uim_api_tbl
+  (removed) im-return-str
+  (removed) im-return-str-list
+Description:
+  - uim-scm has been separated from libuim as libuim-scm
+  - uim-scm-abbrev.h is introduced
+  - Scheme integer type has been changed to long from int
+  - Return type of uim_scm_symbol_value_int() has been changed to long
+  - return type of uim_scm_length() is changed to long from uim_lisp
+  - uim_scm_null_list() is renamed to uim_scm_null(). The old name is
+    defined as an alias macro (deprecated)
+  - uim_scm_integerp() is renamed to uim_scm_intp(). The old name is
+    defined as an alias macro (deprecated)
+  - uim_scm_stringp() is renamed to uim_scm_strp(). The old name is
+    defined as an alias macro (deprecated)
+  - uim_scm_init_subr_*() are renamed to uim_scm_init_proc*(). The old
+    name is defined as an alias macro (deprecated)
+  - uim_scm_c_list() and other list-related functions are moved into
+    uim-custom.c and made static
+  - uim_scm_make_int(), uim_scm_make_str(), uim_scm_make_symbol(),
+    uim_scm_make_ptr(), uim_scm_make_func_ptr(), uim_scm_quote(),
+    uim_scm_cons(), uim_list1(), uim_list2(), uim_list3(), uim_list4(),
+    uim_list5() have been callable from non-Scheme context, to use with
+    uim_scm_call*()
+  - uim_scm_init_fsubr() has been removed. Use define-macro instead
+  - If you want to access the verbose-level, use uim_scm_callf() instead
+  - If you want to redirect stderr, use %%set-current-error-port!
+------------------------------------------------------------------------------
+Summary: GC protection API change
+Affects: uim developers, IM developers
+Updates: C API, libuim ABI
+Version: 1.4.0
+Revision: ac4182, ac4184, ac4345, ac4346, ac4356
+Date: 2006-12-23, 2007-01-10
+Modifier: YamaKen
+Related: libgcroots introduction to SigScheme
+URL:
+Changes:
+      (new) uim_scm_gc_unprotect()
+      (new) uim_scm_call_with_gc_ready_stack()
+  (removed) UIM_SCM_GC_PROTECTED_CALL()
+  (removed) UIM_SCM_GC_PROTECTED_CALL_VOID()
+  (removed) uim_scm_gc_protect_stack()
+  (removed) uim_scm_gc_unprotect_stack()
+Description:
+  The new API is introduced to resolve corrupted GC problem on
+  register windows on SPARC and register stack backing store on
+  IA-64. It needs API change. Although !UIM_SCM_GCC4_READY_GC enables
+  the old APIs, it will be removed on uim 1.5.0. Please use new API.
+------------------------------------------------------------------------------
+Summary: Focus activity and input position relocation notifications
+Affects: Bridge developers, IM developers
+Updates: C API, Scheme API
+Version: 1.3.0
+Revision: ac3966, ac3968-ac3970, ac4001-4005, ac4008-4016, ac4025, ac4027
+Date: 2006-10-09 - 2006-12-01
+Modifier: YamaKen, Etsushi
+Related: bug #7729
+URL:
+  https://lists.freedesktop.org/archives/uim/2006-October/001548.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001559.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001566.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001573.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001576.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001581.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001584.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001591.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001602.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001606.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001609.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001613.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001614.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001626.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001628.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001633.html
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2005-October/002571.html (Japanese)
+Changes:
+   (update) uim_reset_context()
+      (new) uim_focus_in_context()
+      (new) uim_focus_out_context()
+      (new) uim_place_context()
+      (new) uim_displace_context()
+      (new) focus-in-handler
+      (new) focus-out-handler
+      (new) place-handler
+      (new) displace-handler
+Description:
+  The focus activity and input position relocation notifications are
+  required to handle some IM-specific convenient behaviors, such as
+  reset context at focus-out (latin IMs), auto-commit pending preedit
+  string at cursor relocation (Hangul IMs), and preedit relocation
+  between textareas (Japanese IMs). See the discussions of URL: for
+  further information. The requirements for the reset handler is also
+  redefined to be matched with the other new handlers.
+------------------------------------------------------------------------------
+Summary: Text acquisition and injection API
+Affects: Bridge developers, IM developers
+Updates: C API, Scheme API, libuim ABI
+Version: 1.3.0
+Revision: ac3907, ac3910-ac3922, ac3967, ac3971-ac3989, ac4026
+Date: 2006-10-02 - 2006-10-11, 2006-11-10 - 2006-11-16, 2006-12-01
+Modifier: YamaKen, Etsushi
+Related: surrounding text API
+URL:
+  https://lists.freedesktop.org/archives/uim/2006-October/001535.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001542.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001544.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001547.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001551.html
+  https://lists.freedesktop.org/archives/uim/2006-October/001553.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001583.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001605.html
+  https://lists.freedesktop.org/archives/uim/2006-November/001608.html
+  http://lists.sourceforge.jp/mailman/archives/scim-imengine-dev/2006-November/001412.html (Japanese)
+Changes:
+      (new) enum UTextArea
+      (new) enum UTextOrigin
+      (new) enum UTextExtent
+      (new) uim_set_text_acquisition_cb()
+      (new) uim_input_string()
+  (removed) uim_set_surrounding_text_cb()
+  (removed) uim_set_surrounding_text()
+      (new) input-string-handler
+      (new) im-acquire-text
+      (new) im-delete-text
+  (removed) im-request-surrounding
+  (removed) im-delete-surrounding
+Description:
+  The experimental surrounding text API (never used until now) has
+  been replaced with general text acquisition API. It allows to
+  acquire arbitrary length string of the entire text of the textarea
+  which input context is placed, clipboard, and selection text. The
+  feature can be used as surrounding text processing, re-conversion of
+  Japanese text, pasting clipboard text into preedit, and possibly
+  pluggable full-screen editor for applications.
+  
+  Since the obsoleted surrounding text API was never used, The removal
+  of the API is not regarded as a backward-compatibility break of the ABI.
+------------------------------------------------------------------------------
+Summary: Add new key definition
+Affects: Bridge developers, Helper program developers
+Updates: libuim ABI
+Version: 1.3.0
+Revision: ac3923, ac3936, ac3937, ac4063
+Date: 2006-10-21, 2006-10-23
+Modifier: Etsushi, YamaKen
+Related:
+URL: https://lists.freedesktop.org/archives/uim/2006-October/001567.html
+Changes:
+  (update) UKey
+  (update) key_tab
+Description:
+  Add dead keys, kana keys, and some keys on international keyboard.
+  These keys are added at the bottom of enum UKey to avoid backward ABI
+  incompatibility.
+------------------------------------------------------------------------------
+Summary: Add new key definition
+Affects: Bridge developers, Helper program developers
+Updates: libuim ABI
+Version: 1.2.0
+Revision: ac3765
+Date: 2006-07-21
+Modifier: Etsushi
+Related:
+URL:
+Changes:
+  (update) UKey
+Description:
+  Add some key definitions and symbols for Japanese keyboard.
+------------------------------------------------------------------------------
+Summary: Version numbers for conditional compilation
+Affects: Bridge developers, Helper program developers
+Updates: C API
+Version: 1.1.0
+Revision: ac3460
+Date: 2006-05-21
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (new) UIM_VERSION_MAJOR
+  (new) UIM_VERSION_MINOR
+  (new) UIM_VERSION_PATCHLEVEL
+  (new) UIM_VERSION_REQUIRE()
+Description:
+  To absorb API and helper protocol incompatibility, provide the version
+  numbers to allow conditional compilation for 3rd party uim-related
+  softwares.
+------------------------------------------------------------------------------
+Summary: Deprecate truth predicates for uim-scm
+Affects: uim developers, IM developers
+Updates: C API (uim-scm)
+Version: 1.1.0
+Revision: ac3218, ac3219
+Date: 2006-04-02
+Modifier: YamaKen
+Related: Introduction of combined-source version of SigScheme on r5rs branch
+URL:
+Changes:
+         (new) UIM_SCM_FALSEP
+         (new) UIM_SCM_NFALSEP
+  (deprecated) FALSEP
+  (deprecated) NFALSEP
+  (deprecated) TRUEP
+  (deprecated) NTRUEP
+Description:
+  The non-prefixed version macros conflict with SigScheme's internal ones when
+  the uim-scm.c include the combined-source version of SigScheme. And they may
+  also conflict with other headers on uim plugins that link with non-uim
+  libraries. So it should be prefixed. Although the old macros are still
+  available, it should be replaced with the new ones until the r5rs branch is
+  merged into trunk.
+------------------------------------------------------------------------------
+Summary: Rename uim-switch-im to im-switch-im
+Affects: uim developers
+Updates: Scheme API
+Version: 1.1.0
+Revision: ac3151
+Date: 2006-03-02
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (removed) uim-switch-im
+      (new) im-switch-im
+Description:
+  Rename the inappropriate procedure name. And make the argument
+  raw-context acceptable with retrieve_uim_context(), likewise other
+  im-* procedures.
+------------------------------------------------------------------------------
+Summary: Context-originated IM switching of other contexts
+Affects: Bridge developers
+Updates: C API, Scheme API
+Version: 1.1.0
+Revision: ac3147, ac3148, ac3150, ac3151
+Date: 2006-02-24
+Modifier: YamaKen, Etsushi
+Related: action-based IM switcher
+         "Version numbers for conditional compilation"
+URL:
+Changes:
+  (new) uim_set_im_switch_request_cb()
+  (new) im-switch-app-global-im
+  (new) im-switch-system-global-im
+Description:
+  These APIs are used for IM switching of specific set of contexts other than
+  currently focused context. It ordinarily issued in response to
+  action_imsw_*, and can be used for switching by keystroke.
+------------------------------------------------------------------------------
+Summary: Obsolete prop_label handlings
+Affects: Helper program developers, Bridge developers
+Updates: Helper protocol, Scheme API
+Version: 1.1.0
+Revision: ac3122, ac3123, ac3125, ac3131
+Date: 2006-02-20
+Modifier: Etsushi, YamaKen
+Related: "Add icon support to helper protocol"
+         "Version numbers for conditional compilation"
+URL:
+Changes:
+    (removed) "prop_label_get"
+    (removed) "prop_label_update"
+    (removed) im-update-prop-label
+  (obsoleted) uim_set_prop_label_update_cb
+  (obsoleted) uim_prop_label_update
+Description:
+  The prop_label messages had already lost its original role by revised
+  prop_list message (particularly 'activity' field). Because format revision
+  of prop_list_update broke the protocol compatibility, it is good opportunity
+  to remove the unusable message.
+  
+  Although C API/ABI is kept to be backward compatible with uim 1.0, bridges
+  and helper programs should remove prop_label handlings.
+------------------------------------------------------------------------------
+Summary: Add icon support to helper protocol
+Affects: Helper program developers
+Updates: Helper protocol
+Version: 1.1.0
+Revision: ac3110
+Date: 2006-02-18
+Modifier: YamaKen
+Related: "Version numbers for conditional compilation"
+URL:
+  https://lists.freedesktop.org/archives/uim/2006-February/001434.html
+Changes:
+  (update) "prop_list_update"
+Description:
+  Add 'indication_id' attribute to the message to support icons on
+  toolbars. And a special indication_id "separator" is also defined.
+  
+  The message format have been incompatible with former one. Helper program
+  developers, please read doc/HELPER-PROTOCOL and follow the change.
+------------------------------------------------------------------------------
+Summary: Rename is-set-ugid? to follow the Scheme naming convention
+Affects: IM developers, uim developers
+Updates: Scheme API
+Version: 1.1.0
+Revision: ac2953
+Date: 2006-01-21
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+ (removed) is-set-ugid?
+     (new) setugid?
+Description:
+  Ordinary Scheme predicate does not have 'is' prefix. And to indicate
+  its function similarity to the issetugid(3), the '_' separator
+  should be removed.
+------------------------------------------------------------------------------
+Summary: Hide unintentionally exposed is_setugid()
+Affects: uim developers
+Updates: C API
+Version: 1.1.0
+Revision: ac2952
+Date: 2006-01-21
+Modifier: YamaKen
+Related:
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2006-January/002799.html (Japanese)
+Changes:
+ (removed) is_setugid
+Description:
+  is_setugid() was supposed to be an internal function, but was
+  exposed as global symbol in libuim unintentionally. The libtool
+  option -export-symbols-regex was expected to hide the symbol, but
+  did not.
+
+  And it was inappropriately listed in the public header file
+  uim-util.h. So the function has been hidden as internal function,
+  and prefixed with 'uim_' to avoid symbol conflict.
+
+  Although this is an API/ABI change, the libtool version is not
+  changed since it was virtually an internal function. The change does
+  not affect the compatibility.
+------------------------------------------------------------------------------
+Summary: File type information of pathname custom type
+Affects: IM developers, Helper program developers
+Updates: Scheme API, C API (uim-custom)
+Version: 1.1.0
+Revision: ac2946, ac2947, ac2948
+Date: 2006-01-21
+Modifier: YamaKen
+Related: bug #5666
+URL:
+  https://lists.freedesktop.org/archives/uim-commit/2005-December/002457.html
+Changes:
+ (affected) define-custom
+   (update) custom-pathname?
+      (new) custom-pathname-type
+   (update) struct uim_custom_value
+      (new) struct uim_custom_pathname
+      (new) enum UCustomPathnameType
+Description:
+  To enable appropriate GUI widget handling, 'pathname' custom
+  variable should provide the information whether the path is regular
+  file or directory.
+
+  Valid form for the pathname type on define-custom has been
+  changed. 4th argument for it must contain the type information. See
+  the real example of skk-custom.scm and im-custom.scm.
+
+  And since the changes break the uim-custom API, all programs using
+  libuim-custom must follow it. Although it broke uim-custom API, the
+  uim API and ABI (libuim) is not changed.
+------------------------------------------------------------------------------
+Summary: Update helper protocol about commit_string.
+Affects: Bridge developers, Helper program developers
+Updates: Helper protocol
+Version: 1.0.0
+Revision: ac2314
+Date: 2005-12-02
+Modifier: Etsushi Kato
+Related:
+URL:
+Changes:
+  (update) "commit_string"
+Description:
+  Charset is now required to be specified with "commit_string"
+  message.  For backward compatibility, each bridge should handle the
+  message as UTF-8 if charset specifier is not available.
+------------------------------------------------------------------------------
+Summary: Removal of obsolete constant definitions
+Affects: Bridge developers, Helper program developers
+Updates: C API
+Version: 0.5.1
+Revision: ac2262
+Date: 2005-11-27
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+  (removed) UKey_Shift
+  (removed) UKey_Control
+  (removed) UKey_Alt
+  (removed) UKey_Meta
+  (removed) UKey_Pseudo0
+  (removed) UKey_Pseudo1
+  (removed) UPeAttr_None
+  (removed) UPeAttr_UnderLine
+  (removed) UPeAttr_Reverse
+  (removed) UPeAttr_Cursor
+  (removed) UPeAttr_Separator
+Description:
+  The constants for backward compatibility have been removed. Use new ones.
+------------------------------------------------------------------------------
+Summary: Verbose level of backtrace has been changed
+Affects: uim developers, bridge developers
+Updates: Internal behavior of libuim
+Version: 0.5.1
+Revision: ac2004
+Date: 2005-11-05
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+Description:
+  To fix unstable result of the testing framework, backtrace printing
+  has been suppressed at verbose level 1. Now verbose level 2 is
+  required to print backtrace, and libuim's default is also changed to
+  2. So ordinary users and developers don't needed to mind it.
+------------------------------------------------------------------------------
+Summary: Notification of changes in input context configuration
+Affects: Bridge developers
+Updates: C API
+Version: 0.5.1
+Revision: ac1866
+Date: 2005-10-23
+Modifier: Etsushi Kato
+Related: IM switch by hot keys
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2005-October/002577.html (Japanese)
+Changes:
+  (new) uim_set_configuration_changed_cb
+Description:
+  API for setting a callback function for notifying some configuration
+  changes in input context.  The callback is typically called when IM
+  of a context is changed.
+------------------------------------------------------------------------------
+Summary: Obsolete some misc Scheme APIs
+Affects: IM developers
+Updates: Scheme API
+Version: 0.5, 0.4.9
+Revision: ac1413
+Date: 2005-09-05
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (removed) bitwise-or
+      (new) bitwise-ior
+  (removed) enclose-another-env
+      (new) %%enclose-another-env
+  (removed) toplevel-env
+      (new) interaction-environment
+Description:
+  Obsolete inappropriate or wrong API with new appropriate ones.
+------------------------------------------------------------------------------
+Summary: An experimental custom variable reloading API
+Affects: Helper program developers, Bridge developers
+Updates: C API, Helper protocol
+Version: 0.5
+Revision: ac1160, ac1161, ac1162
+Date: 2005-08-09
+Modifier: TOKUNAGA Hiroyuki, YamaKen
+Related: bug #3620
+URL:
+Changes:
+  (new) uim_custom_broadcast_reload_request()
+Description:
+------------------------------------------------------------------------------
+Summary: default IM switching responsibility separation from uim_switch_im()
+Affects: Bridge developers
+Updates: C API
+Version: 0.4.8
+Revision: 971
+Date: 2005-07-14
+Modifier: YamaKen
+Related: IM switcher
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2005-July/002130.html (Japanese)
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2005-July/002135.html (Japanese)
+Changes:
+  uim_switch_im()
+Description:
+  The responsibility about switching default IM has been separated
+  from uim_switch_im() and moved into each bridges. This is required
+  to handle im_change_this_text_area_only message properly.
+------------------------------------------------------------------------------
+Summary: New helper-candwin protocol about showing input state
+Affects: Helper program developers
+Updates: Helper-candwin protocol
+Version: 0.4.7
+Revision: ac744
+Date: 2004-03-04
+Modifier: Etsushi Kato
+Related: 'bridge-show-input-state? of im-custom.scm
+URL:
+Changes:
+  (new) "show_caret_state"
+Description:
+  New helper-candwin message from uim-xim to uim-candwin-{gtk,qt} for 
+  showing caret state.  The string must be UTF-8 encoded and its
+  format is as same as the format of "prop_label_update" message in
+  generic helper protocol.
+------------------------------------------------------------------------------
+Summary: A boolean type for uim
+Affects: Helper program developers, Bridge developers, uim developers
+Updates: C API
+Version: 0.4.6
+Revision: ac40, ac53, ac163
+Date: 2004-12-17 - 2005-01-08
+Modifier: YamaKen
+Related: custom API
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2005-January/000831.html
+  https://lists.freedesktop.org/pipermail/uim/2005-January/000878.html
+Changes:
+  (new) uim_bool
+  (new) UIM_TRUE
+  (new) UIM_FALSE
+Description:
+  A boolean type for uim to explicitly indicate intention about values.  A
+  true value is represented as (val != UIM_FALSE). i.e. Don't test a value
+  with (val == UIM_TRUE).
+------------------------------------------------------------------------------
+Summary: New action handling framework
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.6
+Revision: 1427, 1433, 1516, 1558, 1577, 1580, 1583, 1584, 1586, 1587, 1588, 1589, 1590, 1592, 1593
+Date: 2004-10-08 - 2004-11-08
+Modifier: YamaKen
+Related: property.scm
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000676.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000677.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000681.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000682.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000685.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000700.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000706.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000707.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000720.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000729.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000732.html
+  https://lists.freedesktop.org/pipermail/uim/2004-November/000733.html
+  https://lists.freedesktop.org/pipermail/uim/2004-November/000736.html
+Changes:
+  (new) register-action
+  (new) register-widget
+  (new) indicator-new
+  (new) activity-indicator-new
+  (new) actions-new
+  (new) context-prop-activate-handler
+  (new) context-mode-handler
+Description:
+  This user-operable action handling framework have eliminated all of
+  property related handlings such as im-update-prop-list or
+  im-update-prop-label from each input method. Input method developer
+  can forget about the property (and legacy 'mode') feature except for
+  context creation process.
+  
+  Users can configure widgets and actions as their preferable forms.
+  
+  The term 'widget' used in this framework is still under
+  discussion. It may be renamed in accordance with result of the
+  discussion.
+  https://lists.freedesktop.org/pipermail/uim/2004-November/000736.html
+------------------------------------------------------------------------------
+Summary: rk-push-key-last! without side effect
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.6
+Revision: 1542
+Date: 2004-10-25
+Modifier: YamaKen
+Related:
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-October/001253.html (Japanese)
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-October/001254.html (Japanese)
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-October/001255.html (Japanese)
+Changes:
+  (new) rk-peek-terminal-match
+Description:
+  rk-peek-terminal-match returns the rule entry that exactly matches with
+  current pending key sequence. rkc will not be
+  altered. i.e. rk-push-key-last! without side effect
+------------------------------------------------------------------------------
+Summary: New logical order string API for Scheme (ustr)
+Affects: IM developers, uim developers
+Updates: Scheme API
+Version: 0.4.6
+Revision: 1483, 1496, 1520, 1539
+Date: 2004-10-14 - 2004-10-24
+Modifier: YamaKen
+Related:
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000666.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000680.html
+Changes:
+  (new) ustr-rec-spec
+  (new) record ustr
+  (new) ustr-new
+  (new) ustr-whole-seq
+  (new) ustr-former-seq
+  (new) ustr-latter-seq
+  (new) ustr-set-whole-seq!
+  (new) ustr-set-former-seq!
+  (new) ustr-set-latter-seq!
+  (new) ustr-empty?
+  (new) ustr-clear!
+  (new) ustr-clear-former!
+  (new) ustr-clear-latter!
+  (new) ustr-copy!
+  (new) ustr=
+  (new) ustr-length
+  (new) ustr-nth
+  (new) ustr-set-nth!
+  (new) ustr-append!
+  (new) ustr-prepend!
+  (new) map-ustr-whole
+  (new) map-ustr-former
+  (new) map-ustr-latter
+  (new) append-map-ustr-whole
+  (new) append-map-ustr-former
+  (new) append-map-ustr-latter
+  (new) string-append-map-ustr-whole
+  (new) string-append-map-ustr-former
+  (new) string-append-map-ustr-latter
+  (new) ustr-cursor-at-beginning?,
+  (new) ustr-cursor-at-end?
+  (new) ustr-cursor-pos
+  (new) ustr-set-cursor-pos!
+  (new) ustr-cursor-move!
+  (new) ustr-cursor-move-backward!
+  (new) ustr-cursor-move-forward!
+  (new) ustr-cursor-move-beginning!
+  (new) ustr-cursor-move-end!
+  (new) ustr-cursor-frontside
+  (new) ustr-cursor-backside
+  (new) ustr-cursor-delete-frontside!
+  (new) ustr-cursor-delete-backside!
+  (new) ustr-insert-elem!
+  (new) ustr-insert-seq!
+Description:
+  'ustr' stands for 'universal (editable) string'. It represents a logical
+  order string of abstract elements for general purpose. Since it does not
+  assume any specific type of the elements, we can reuse it against several
+  generations of composition table architectures such as rk or hk. It should
+  be isolated from composition table architecture to keep flexibility,
+  reusability and simplicity. ustr provides only basic string operations.
+  
+  See test/test-ustr.scm to understand how it works.
+------------------------------------------------------------------------------
+Summary: New locale based IM-name retrieving API
+Affects: Bridge developers
+Updates: C API
+Version: 0.4.6
+Revision: 1522
+Date: 2004-10-21
+Modifier: YamaKen
+Related:
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000692.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000695.html
+Changes:
+  (new) uim_get_im_name_for_locale()
+Description:
+  uim-xim requires that language of selected IM strictly match with
+  client locale when the client runs on other than UTF-8 locales. This
+  requirement needs the another im-name retrieving function to select
+  most suitable IM.
+------------------------------------------------------------------------------
+Summary: romaji-kana conversion table has been split into two parts
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1299, 1370, 1439
+Date: 2004-09-27, 2004-09-30, 2004-10-10
+Modifier: OHASHI Hideya
+Related:
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-September/001100.html (Japanese)
+Changes:
+  (new) ja-rk-rule-basic
+  (new) ja-rk-rule-additional
+        ja-rk-rule
+Description:
+  The Japanese romaji-kana conversion table ja-rk-rule has been split into
+  ja-rk-rule-basic and ja-rk-rule-additional. This is required to support the
+  AZIK kana-input method properly. ja-rk-rule has been comprised of the 2
+  tables.
+------------------------------------------------------------------------------
+Summary: uim_helper_fd_readable() has been exported
+Affects: Bridge developers
+Updates: C API
+Version: 0.4.4
+Revision: 1436
+Date: 2004-10-10
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (new) uim_helper_fd_readable()
+Description:
+------------------------------------------------------------------------------
+Summary: New IM-switching related API (still under discussion)
+Affects: Bridge developers
+Updates: C API
+Version: 0.4.4
+Revision: 1190, 1271, 1374
+Date: 2004-09-12 - 2004-10-09
+Modifier: TOKUNAGA Hiroyuki, YamaKen
+Related: bug #610
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-September/000646.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000648.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000655.html
+Changes:
+  (new) uim_switch_im()
+  (new) uim_get_current_im_name()
+Description:
+------------------------------------------------------------------------------
+Summary: New gettext API for Scheme
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1144, 1368, 1425
+Date: 2004-09-06 - 2004-10-08
+Modifier: Kouhei Sutou, YamaKen
+Related: bug #529
+URL:
+Changes:
+  (new) gettext-package
+  (new) textdomain
+  (new) bindtextdomain
+  (new) bind-textdomain-codeset
+  (new) gettext
+  (new) dgettext
+  (new) dcgettext
+  (new) ngettext
+  (new) dngettext
+  (new) dcngettext
+  (new) ugettext
+  (new) _
+  (new) N_
+Description:
+------------------------------------------------------------------------------
+Summary: New information retrival API
+Affects: Bridge developers, Helper program developers
+Updates: C API
+Version: 0.4.4
+Revision: 1190, 1199, 1201, 1348, 1368, 1420
+Date: 2004-09-12 - 2004-10-06
+Modifier: TOKUNAGA Hiroyuki, YamaKen
+Related: bug #627
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000650.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000651.html
+  https://lists.freedesktop.org/pipermail/uim/2004-October/000653.html
+Changes:
+  (new) uim_get_im_short_desc()
+  (new) uim_get_default_im_name()
+  (new) uim_get_language_name_from_locale()
+Description:
+------------------------------------------------------------------------------
+Summary: New i18n-related API for Scheme
+Affects: uim developers, IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1368, 1404, 1420
+Date: 2004-09-30 - 2004-10-06
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (new) locale-new
+  (new) locale-lang
+  (new) locale-set-lang!
+  (new) locale-territory
+  (new) locale-set-territory!
+  (new) locale-codeset
+  (new) locale-set-codeset!
+  (new) locale-lang-territory-str
+  (new) locale-str
+  (new) locale-zh-awared-lang
+  (new) langgroup-covers?
+  (new) lang-code->lang-name
+  (new) lang-code->lang-name-raw
+Description:
+------------------------------------------------------------------------------
+Summary: Format extension of language attribute of IM
+Affects: Bridge developers
+Updates: C API
+Version: 0.4.4
+Revision: 1404
+Date: 2004-10-05
+Modifier: YamaKen
+Related:
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-October/001117.html (Japanese)
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-October/001120.html (Japanese)
+Changes:
+  uim_get_im_language()
+Description:
+  This change make uim "zh_TW:zh_HK:en:de:fr" style colon-separated language
+  acceptable. It may affect bridge implementations. Please check.
+------------------------------------------------------------------------------
+Summary: Deprecation of preliminary uim-scm API
+Affects: uim developers
+Updates: C API
+Version: 0.4.4
+Revision: 1389
+Date: 2004-10-03
+Modifier: YamaKen
+Related: bug #481
+URL:
+  http://lists.sourceforge.jp/mailman/archives/anthy-dev/2004-October/001112.html (Japanese)
+Changes:
+  Deprecates almost uim_scm_*() functions
+Description:
+------------------------------------------------------------------------------
+Summary: short-desc argument has been added to register-im
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1190, 1230, 1377
+Date: 2004-09-12 - 2004-10-01
+Modifier: TOKUNAGA Hiroyuki, YamaKen
+Related:
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-September/000646.html
+Changes:
+  register-im
+Description:
+------------------------------------------------------------------------------
+Summary: New IM selection API for Scheme
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1348, 1379
+Date: 2004-09-28
+Modifier: YamaKen
+Related:
+URL:
+Changes:
+  (removed) current-im
+  (removed) select-im
+      (new) retrieve-im
+      (new) default-im-for-debug
+      (new) find-im-for-locale
+      (new) find-default-im
+            find-im
+Description:
+------------------------------------------------------------------------------
+Summary: Context object integration
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1304
+Date: 2004-09-27
+Modifier: YamaKen
+Related: bug #1450
+URL:
+  https://lists.freedesktop.org/pipermail/uim/2004-September/000641.html
+Changes:
+  (removed) context-data
+  (removed) set-context-data!
+  im-commit
+  im-commit-raw
+  im-set-encoding
+  im-clear-preedit
+  im-pushback-preedit
+  im-update-preedit
+  im-clear-mode-list
+  im-pushback-mode-list
+  im-update-mode-list
+  im-update-prop-label
+  im-update-prop-list
+  im-update-mode
+  im-activate-candidate-selector
+  im-select-candidate
+  im-shift-page-candidate
+  im-deactivate-candidate-selector
+  im-request-surrounding
+  im-delete-surrounding
+  *-init-handler
+  *-release-handler
+  *-mode-handler
+  *-press-key-handler
+  *-release-key-handler
+  *-reset-handler
+  *-get-candidate-handler
+  *-set-candidate-index-handler
+  *-prop-handler
+Description:
+  This change integrates following 3 context objects into one.
+
+  - id
+  - context
+  - im-specific-context
+
+  Although some reasons to distinguish the objects exist for API implementor,
+  all 3 context objects semantically mean same 'this input context' for
+  IM-implementors. So we should show the context object as unified one for
+  IM-implementors to eliminate complexity and confusion.
+
+  Scheme procedures has been changed as follows.
+
+  - To generate the integrated context object, use define-record with pseudo
+    inheritance (i.e. concatenate context-rec-spec with your own context
+    rec-spec). See anthy.scm for example
+
+  - im-* procedures now accepts the integrated Scheme-side context object as
+    first argument. It also accepts 'id' as backward compatibility, but not
+    recommended
+
+  - *-init-handler (such as anthy-init-handler) now accepts additional 'im'
+    argument. And it must return an integrated context object. The object must
+    be initialized with 'id' and 'im' arguments which passed to this
+    handler. See anthy-init-handler for example
+
+  - All other *-*-handler has been changed to accept the integrated context
+    object as first argument instead of 'id'
+------------------------------------------------------------------------------
+Summary: Replace IM-specific context object definition by define-record
+Affects: IM developers
+Updates: Scheme API
+Version: 0.4.4
+Revision: 1228
+Date: 2004-09-20
+Modifier: YamaKen
+Related: 'Context object integration'
+URL: 
+Changes:
+  (removed) IM-specific context object accessors defined by hand
+    (added) IM-specific context object accessors defined by define-record
+  (removed) IM-specific context object creator (*-context-new) defined by hand
+    (added) IM-specific context object creator (*-context-new) defined by
+            define-record
+Description:
+  This change replaces boring context definitions in all IMs with
+  define-record procedure to make maintenance easy, avoid human errors and
+  know what members are defined at a glance.
+
+  Developers, remove unused members in define-record definitions which is
+  named as "unused-nth" if truely unused. They are temporarily existing as
+  comment to preserve original definition information
+
+  define-record performs safe definition of a list that has member accessors
+  and creator (*-new) with default value initialization.
+
+  Evaluating following S-exp will
+
+  (define-record 'foo
+    '((member1 ())     ;; second element means 'default value'
+      (member2 "2")
+      (member3 3)))
+
+  cause definition of following procedures.
+
+  foo-new
+  foo-member1
+  foo-set-member1!
+  foo-member2
+  foo-set-member2!
+  foo-member3
+  foo-set-member3!
+
+  See following example to understand what define-record does.
+
+  $ uim-sh
+  uim> (define-record 'foo
+         '((member1 ())
+           (member2 "2")
+           (member3 3)))
+  uim> (foo-new)
+  (() "2" 3)
+  uim> (foo-new 'one 'two 'three)
+  (one two three)
+  uim> (foo-new 1)
+  (1 "2" 3)
+  uim> (define foo-obj (foo-new))
+  (() "2" 3)
+  uim> (foo-member2 foo-obj)
+  "2"
+  uim> (foo-set-member2! foo-obj 'two)
+  two
+  uim> foo-obj
+  (() two 3)
+------------------------------------------------------------------------------
+Summary: Fix a typo of an API function name
+Affects: uim developers, Helper program developers
+Updates: C API, libuim ABI
+Version: 0.4.4
+Revision: 1223
+Date: 2004-09-19
+Modifier: YamaKen
+Related: 
+URL:
+Changes:
+  (removed) uim_helpler_fd_writable()
+    (added) uim_helper_fd_writable()
+Description:
+------------------------------------------------------------------------------
+Summary: New helper protocol messages for IM management
+Affects: Bridge developers, Helper program developers
+Updates: Helper protocol
+Version: 0.4.4
+Revision: 
+Date: 2004-09-12?
+Modifier: TOKUNAGA Hiroyuki
+Related:
+URL:
+Changes:
+  (new) im_list
+  (new) im_list_get
+  (new) im_change_this_text_area_only
+  (new) im_change_this_application_only
+  (new) im_change_whole_desktop
+Description:
+------------------------------------------------------------------------------
+Summary: New surrounding text API (still experimental)
+Affects: Bridge developers
+Updates: C API
+Version: 0.4.4
+Revision: 1187
+Date: 2004-09-12
+Modifier: Yusuke Tabata
+Related: bug #1450
+URL:
+Changes:
+  (new) uim_set_surrounding_text_cb()
+  (new) uim_set_surrounding_text()
+Description:
+------------------------------------------------------------------------------
+Summary: Flag field has been added to prop_list_update message
+Affects: IM developers, Bridge developers, Helper program developers
+Updates: Helper protocol, Scheme API
+Version: 0.4.4
+Revision: 1140, 1141, 1148, 1150
+Date: 2004-09-05 - 2004-09-07
+Modifier: Kazuki Ohta
+Related: should be recorded if open discussion exists
+URL:
+Changes:
+  prop_list_update
+  *-update-prop-list
+Description:
+  This changes role of prop_list_update from 'notifies whole configuration
+  information for properties' to 'notifies whole configuration information for
+  properties, and also notifies status update'. The status update feature
+  added makes the role of the message ambiguous. We should reorganize it in
+  accordance with existence of prop_label_update.
+------------------------------------------------------------------------------
+
+Local Variables:
+mode: indented-text
+fill-column: 78
+End:

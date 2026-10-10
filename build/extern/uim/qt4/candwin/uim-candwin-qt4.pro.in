@@ -1,0 +1,27 @@
+include(../common.pro)
+
+TEMPLATE = app
+
+# to include qtgettext.h
+INCLUDEPATH += @srcdir@/..
+
+LIBS += @LIBINTL@
+
+# Input
+HEADERS += @srcdir@/abstractcandidatewindow.h \
+           @srcdir@/candidatetablewindow.h \
+           @srcdir@/candidatewindow.h \
+           @srcdir@/subwindow.h \
+           @srcdir@/util.h \
+           @srcdir@/ximcandidatewindow.h
+SOURCES += @srcdir@/abstractcandidatewindow.cpp \
+           @srcdir@/candidatetablewindow.cpp \
+           @srcdir@/candidatewindow.cpp \
+           @srcdir@/qt4.cpp \
+           @srcdir@/subwindow.cpp \
+           @srcdir@/util.cpp \
+           @srcdir@/ximcandidatewindow.cpp
+
+TARGET = uim-candwin-qt4
+
+target.path += @DESTDIR@@UIM_LIBEXECDIR@

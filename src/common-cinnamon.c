@@ -65,6 +65,7 @@ struct _UimToolbarCommon {
     gboolean is_connected;
     gboolean is_toolbar_visible;
     gboolean with_dark_bg;
+    gboolean custom_enabled; /* GTK3 版 custom_enabled 相当 */
 
     GMainLoop *main_loop; /* uim_toolbar_common_quit 用 */
     void (*state_changed_cb)(void *user_data);
@@ -99,6 +100,13 @@ UimToolbarCommon *uim_toolbar_common_new(void)
     self->is_toolbar_visible = TRUE;
     self->with_dark_bg =
         uim_scm_symbol_value_bool("toolbar-icon-for-dark-background?");
+    /* GTK3 版 common-gtk.c と同じ: uim-toolbar-save-default-im? が真の
+     * 場合のみ uim-custom を有効化する（custom-groups 未初期化で
+     * custom-set-value! が unbound variable になるのを防ぐ）。 */
+    if (uim_scm_symbol_value_bool("uim-toolbar-save-default-im?"))
+        self->custom_enabled = (gboolean)uim_custom_enable();
+    else
+        self->custom_enabled = FALSE;
     the_instance = self;
     return self;
 }
@@ -107,10 +115,14 @@ void uim_toolbar_common_free(UimToolbarCommon *self)
 {
     if (!self)
         return;
-    if (self->watch_id)
+    if (self->watch_id) {
         g_source_remove(self->watch_id);
-    if (self->chan)
+        self->watch_id = 0;
+    }
+    if (self->chan) {
         g_io_channel_unref(self->chan);
+        self->chan = NULL;
+    }
     if (self->fd != -1) {
         uim_helper_close_client_fd(self->fd);
         self->fd = -1;
@@ -199,6 +211,13 @@ static gboolean fd_read_cb(GIOChannel *channel, GIOCondition c, gpointer p)
         }
         g_strfreev(lines);
         free(msg);
+    }
+    /* uim_helper_read_proc 中に切断され helper_disconnect_cb が watch を
+     * 解除済みの場合は FALSE を返して GLib 側に自然に破棄させる
+     * （g_source_remove の二重解除を防ぐ）。 */
+    if (!self->is_connected) {
+        self->watch_id = 0;
+        return FALSE;
     }
     return TRUE;
 }
@@ -408,7 +427,8 @@ gboolean uim_toolbar_common_activate_action(UimToolbarCommon *self,
     uim_helper_send_message(self->fd, msg);
     g_free(msg);
 
-    if (is_msg_imsw(action) && is_imsw_coverage_system_global())
+    if (is_msg_imsw(action) && self->custom_enabled &&
+        is_imsw_coverage_system_global())
         save_default_im(get_imsw_im(action));
 
     /* 状態は prop_list_update で返ってくる */

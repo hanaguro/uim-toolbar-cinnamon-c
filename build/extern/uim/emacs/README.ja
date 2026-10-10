@@ -1,0 +1,548 @@
+uim.el - Emacs uim bridge
+
+Copyright (c) 2005-2013 uim Project https://github.com/uim/uim
+
+All rights reserved.
+
+このソフトウェアはBSDライセンスに基づき配布されています．
+
+
+uim.elとは
+==========
+
+uim.elは，uimとEmacsの間を結ぶブリッジです．
+
+uim.elを導入することで，様々なインプットメソッドをuimを通じて
+Emacs上で利用することが可能になります．
+
+
+対応するEmacs
+=============
+
+- GNU Emacs 20系以上
+  * 20.7.1，21.4.1, 22.1.1 で動作確認
+
+- XEmacs 21系
+  * 21.4.20 (sumo + mule-sumo) で動作確認
+
+  ※ これ以前のもの (Mule-2.3 や Emacs-19.x など) には対応しません．
+  ※ GNU Emacs 23系 (cvs版) では動作するかもしれません．
+
+
+クイックスタート
+================
+
+uim.elは，Emacsのマイナーモード (uim-mode) として実装されています．
+
+Emacsでuim.elを使う方法には，uim-modeを直接呼び出して利用する方法と，
+LEIMを介して利用する方法の，2通りがあります．
+
+いずれの場合も，.emacs (あるいは他のEmacsの設定のためのファイル) に
+いくつか記述を加える必要があります．また，どちらを選んでもuim.elの
+提供する機能に変わりはありません．
+
+もし，あなたがuim.elの提供するIMと，それ以外のEmacs上のIMを頻繁に
+切り替えて利用するのであれば，LEIMを利用した方がよいでしょう．
+
+
+* uim-modeを直接呼び出して利用する場合の設定
+
+- 設定例
+
+    ;; uim.elを読み込む
+    (require 'uim)
+    ;; Emacs起動時に読み込んでほしくない場合は，上記をコメントアウトし，
+    ;; 代わりに下記の行をアンコメント
+    ;;(autoload 'uim-mode "uim" nil t)
+
+    ;; uim-modeをトグルするためのキーバインド (C-oを使う場合の例)
+    (global-set-key "\C-o" 'uim-mode)
+
+
+- 解説
+
+  まずrequire関数でuim.elを直接ロードします．
+
+    (require 'uim)
+
+
+  あるいは，必要なときになって初めてuim.elを読み込むようにしたいので
+  あれば，require関数の代わりにautoload関数を使います．
+
+    (autoload 'uim-mode "uim" nil t)
+
+
+  次に，uim-modeをトグルするために，uim-modeコマンドのキーバインドを
+  定義します．例えば，uim-modeのトグルにC-oを使うのであれば，以下を
+  記述します．
+
+    (global-set-key "\C-o" 'uim-mode)
+
+
+
+* LEIMを介して利用する場合の設定
+
+
+- 設定例
+
+    ;; uim.elを読み込みEmacsへIMを登録する
+    (require 'uim-leim)
+
+    ;; デフォルトのIMをuim提供のものに設定 (以下はAnthyの例)
+    (setq default-input-method "japanese-anthy-uim")
+
+
+- 解説
+
+  まず，require関数でuim-leim.elをロードします．ここでuimの提供するIMが
+  Emacsに登録され，LEIMで利用可能になります．
+
+    (require 'uim-leim)
+
+
+  LEIMを利用した場合，uimの提供するIMは，LEIMの形式の名前でEmacsに
+  登録されます．LEIMの形式の命名規則は以下の通りです．
+
+    "<Emacsでの言語名>-<uimの返してくるIM名>-uim"
+
+
+  例えば，uim-anthyであれば，uimの返してくるIM名は "anthy" で，
+  日本語を示すEmacsの言語名は "japanese" なので，LEIMに登録される
+  名称は "japanese-anthy-uim" となります．
+
+
+  uim.elの提供するものも含めて，LEIMで利用可能なIMの一覧は，以下の
+  コマンドで確認することができます．
+
+    M-x list-input-method
+
+
+  LEIMのデフォルトのIMは，default-input-method変数にIM名を設定する
+  ことで指定できます．もしuim-anthyをLEIMのデフォルトのIMとしたければ，
+  以下のように記述します．
+
+    (setq default-input-method "japanese-anthy-uim")
+
+
+
+
+普通のカスタマイズ
+==================
+
+* uim-modeのデフォルトのIMをuim全体と独立に設定する
+
+  デフォルトでは，uim-modeが有効になると，uim-pref-gtkなどの
+  ツールで設定されたIMが有効になります．
+
+  もし，uim全体の設定とは異なるIMをデフォルトで利用したければ，
+  uim-default-im-engine 変数にそのIM名を設定して下さい．例えば
+  uim-anthyをデフォルトで利用したければ，以下を記述します．
+ 
+    (setq uim-default-im-engine "anthy")
+
+
+* インライン変換候補表示機能をデフォルトで有効にする
+
+  uim.elは，変換候補を入力中の文字列のすぐ下 (もしくはすぐ上) に
+  縦方向に並べて表示する機能を備えています．uim.elではこれを
+  「インライン変換候補表示機能」と呼んでいます．
+
+  インライン変換候補表示機能はuim.elの最も重要な特徴の一つなのですが，
+  プロポーショナルフォントを利用している場合，表示が崩れてしまうため，
+  デフォルトでは無効化されています．
+
+  もしあなたがEmacsで等幅フォントを利用しているのであれば，インライン
+  変換候補表示機能を有効にすることをお勧めします．
+
+  インライン変換候補表示機能をデフォルトで有効にしたい場合は，以下の
+  例のように uim-candidate-display-inline 変数にnil以外の値を設定します．
+
+    (setq uim-candidate-display-inline t)
+
+
+  特定のメジャーモードにおいてのみ，インライン変換候補表示機能を
+  有効 (もしくは無効) にしたい場合は，uim-candidate-display-inline 
+  変数をバッファローカルにした上で，非nil (もしくはnil) をセットして
+  下さい．
+
+  例えば，インライン変換候補表示機能をtext-modeでのみ有効にするには，
+  以下のように記述します．
+
+    (setq uim-candidate-display-inline nil)
+
+    (add-hook 'text-mode-hook 
+              (lambda ()
+	        (make-variable-buffer-local 'uim-candidate-display-inline)
+                (setq uim-candidate-display-inline t)))
+
+
+* プリエディット文字列や変換候補の色を変更する
+
+  uim.elは，プリエディット文字列や変換候補の装飾に以下のフェイスを
+  用いています．
+
+   - uim-preedit-highlight-face  : プリエディット文字列のハイライト部分
+   - uim-separator-face          : プリエディット文字列の区切り文字
+   - uim-candidate-odd-face      : 奇数番目の変換候補
+   - uim-candidate-even-face     : 偶数番目の変換候補
+   - uim-candidate-selected-face : 選択中の変換候補
+   - uim-candidate-nth-face      : 選択中の変換候補の番号
+
+
+  これらの色を変更したい場合，.emacsなどに以下のように記述します．
+
+    (set-face-foreground 'uim-preedit-highlight-face "white")
+    (set-face-background 'uim-preedit-highlight-face "blue")
+    (set-face-foreground 'uim-separator-face "white")
+    (set-face-foreground 'uim-candidate-odd-face "blue")
+    (set-face-background 'uim-candidate-odd-face "white")
+    (set-face-foreground 'uim-candidate-even-face "blue")
+    (set-face-background 'uim-candidate-even-face "yellow")
+    (set-face-foreground 'uim-candidate-selected-face "blue")
+    (set-face-background 'uim-candidate-selected-face "white")
+    (set-face-foreground 'uim-candidate-nth-face "red")
+    (set-face-background 'uim-candidate-nth-face "white")
+
+
+  なお，Emacsで利用可能な色とその名称は，以下のコマンドで確認することが
+  できます．
+
+    M-x list-colors-display
+
+
+  ※ uim.elをautoloadで読み込む設定にしている場合，以下のように，
+     上記の設定を uim-load-hookの中に記述してください．
+
+    (add-hook 'uim-load-hook
+               '(lambda ()
+                 (set-face-foreground 'uim-preedit-highlight-face "white")
+                 (set-face-background 'uim-preedit-highlight-face "blue")
+
+                   ...
+
+                 (set-face-background 'uim-candidate-nth-face "white")
+                 ))
+
+
+* プリエディットや変換候補に枠を付ける
+
+  uim.elは，プリエディットや変換候補の境界をASCII文字で描画する機能を
+  備えています．
+
+  Emacsやターミナルエミュレータが下線や色のついた文字の表示に
+  対応していない場合に備え，uim.elでは
+
+
+  プリエディットの両脇にフェンスを表示させるには，以下を記述します．
+
+    (setq-default uim-preedit-display-fences t)
+
+
+  変換候補のフレームを表示するには，以下を記述します．
+
+    (setq-default uim-candidate-display-frame t)
+
+
+* 特定のメジャーモードにおいてuim.elを最初から有効にする
+
+  特定のメジャーモードにおいてuim.elを最初から有効にするには，
+  メジャーモードのフックの中でuim-mode関数を，1以上の数を引数に
+  呼びます．
+
+  uim-modeを直接利用している場合は以下のように記述します．
+
+    (add-hook 'html-mode-hook
+              '(lambda () (uim-mode 1)))
+
+  LEIMを利用している場合は，以下のように記述します．
+
+    (add-hook 'html-mode-hook
+              '(lambda () (toggle-input-method)))  
+
+
+
+特殊なカスタマイズ
+========================
+
+* 各IMの標準の入力モードを変更する
+
+  各IMの標準の入力モード (「ひらがな入力」や「半角カタカナ入力」など)を，
+  uimの全体設定とは異なる値に変更したい場合は，設定を列挙したリストを
+  uim-default-im-propに設定します．
+
+  たとえば，uim-anthyとuim-skkに関して，uim.elが起動すると同時に
+  ひらがな入力モードにしておきたい場合は，以下のように.emacsに記述します．
+
+    (setq uim-default-im-prop 
+          '("action_anthy_hiragana" "action_skk_hiragana"))
+
+
+  なお，"action_anthy_hiragana" などの値に関しては，まとまった
+  ドキュメントが存在しないため，各種モードの値を得るには，uimの
+  scheme記述必要があります．
+
+  以下のようにschemeファイルをgrepすると見つかるかもしれませんが，
+  あまり良い方法ではありません．
+  
+     grep -r register-action /usr/share/uim/*.scm
+
+
+* ターミナルモードでのEscapeキーの挙動を変更する
+
+  Emacsを -nw オプションをつけてターミナル上で起動した場合，uim.elは
+  ファンクションキーや矢印キーなどの特殊なキーを認識するために，
+  デフォルトでは単独で押下されたEscapeをuim側に渡さないようになっています．
+  そのため，uim側で単独のEscapeにバインドされた処理をEmacs上で呼び出す
+  場合，Escapeを2回続けて入力しなければなりません．
+
+
+  これがどうしても嫌な場合は，uim-use-single-escape-on-terminal 変数を
+  非nilにすることで，プリエディット文字列表示中に単独のEscapeを有効に
+  することができます．
+
+    (setq uim-use-single-escape-on-terminal t)
+
+
+  ※ この設定を行うと，ファンクションキーや矢印キーなどの特殊なキーの他，
+     Altキーを組み合わせたキーバインドなども正しく動作しなくなるため，
+     お薦めしません．
+
+
+
+コマンド
+========
+
+* uim-mode
+
+  uim-modeを直接利用している場合に，uim.elのオンオフを切り替えます．
+
+
+* uim-im-switch
+
+  uim.elをマイナーモードで直接利用している場合に，現在のバッファで
+  利用しているIMを変更します．入力後，tabを押すと，利用可能なIMが
+  一覧表示され，選択できます．
+
+  ※ LEIMでuim.elを利用している場合は，set-input-method コマンドを
+     利用してIMを切り替えて下さい．
+
+
+* uim-switch-candidate-display-mode
+
+  現在のバッファのインライン変換候補表示機能のオンオフを切り替えます．
+
+
+* uim-reorder-minor-mode-map-alist
+
+  マイナーモードのキーマップを並び替えて，uim.elのマップを先頭に
+  移動させます．詳細はFAQを参照してください．
+
+
+* uim-el-version
+
+  uim.elのバージョンを表示します．
+
+
+
+FAQ
+===
+
+Q. gtags-modeを起動すると，uim-anthyをOnにできなくなります．
+   私は，uim-anthyのOn/OffにAlt+Spaceを割り当てています．
+
+A. Emacsをターミナル上で起動しており，内部でEscapeで始まるキーマップを
+   備えたマイナーモード (gtags-modeなど) をuim.elより後に読み込んで
+   しまうと，このような問題が発生します．
+
+   このような問題は，他のマイナーモードを有効にした後に，マイナー
+   モードのキーマップ列を並び替え，先頭にuim.elのキーマップを
+   移動させることで解消可能です．
+
+   uim-reorder-minor-mode-alist 関数が，その機能を提供します．
+
+
+   たとえば，.emacsで以下のようにしてgtags-modeを起動しているなら，
+
+     (add-hook 'c-mode-common-hook
+               '(lambda ()
+ 	         (gtags-mode 1)))
+
+   次のように，gtags-modeを起動した後でuim-reorder-minor-mode-alistを
+   呼び出すようにします．
+
+     (add-hook 'c-mode-common-hook
+                '(lambda ()
+ 	          (gtags-mode 1)
+                  (uim-reorder-minor-mode-map-alist)))
+
+
+Q. LaTeXファイルを編集していると，uim.elが変換候補を出したり消したり
+   するたびに，行がピクピク動くことがあります．
+   一体何が起きているのですか？
+
+A. これは，Emacs-22.xのlatex-modeが，「^」や「_」の後の文字のフォント
+   サイズを小さくしてしまうというお節介な仕様が原因です．
+
+
+   気になるのであれば，以下の設定を.emacsに追加して，latex-modeで
+   上付き文字や下付き文字の部分のサイズが小さくならないようにして下さい．
+   
+   
+   (add-hook 'latex-mode-hook
+             '(lambda ()
+                (setq tex-verbatim-face nil)
+                (defun tex-font-lock-suscript () nil)))
+
+
+Q. インライン変換候補表示が突然無効化されてしまうことがあります．
+   なぜですか？
+
+A. おそらく，uim.elが変換候補を表示しようとしている領域にオーバレイが
+   存在していると思われます．
+
+   uim.elは，技術的な理由から，オーバレイのある領域に変換候補を
+   表示することができません．変換候補が表示されるべき領域にオーバレイが
+   存在した場合，インライン変換候補表示機能は一時的に無効化されます．
+ 
+   例えば，flyspell-modeやshow-paren-mode，mmm-modeなどが
+   オーバレイを利用しています．また，Mewのヘッダ入力欄でも利用
+   されています．これらモードとuim.elを一緒に利用した場合，
+   インライン変換候補表示が無効化される場合があります．
+
+
+Q. Emacsでプロポーショナルフォントを利用している場合に，変換候補の
+   表示が崩れます．どうすれば直りますか？
+
+A. 残念ながら，プロポーショナルフォントを利用している限り，
+   インライン変化候補の表示の崩れを防ぐことはできません．
+
+   どうしてもプロポーショナルフォントを利用したいのであれば，
+   インライン変換候補表示を無効化するか，さもなくは崩れるのを
+   我慢して下さい．
+
+
+Q. uim.elを有効にしていると，私のよく使うキー操作が正常に
+   機能しませんがなぜですか？
+
+A. uim.elは，ありとあらゆるキー操作を横取りして一度uimに渡すことを
+   しています．そのため，元々の特殊な方法で実装されている一部の
+   キー操作は，uim.elを有効にした場合，正常に利用できなくなってしまう
+   可能性があります．
+
+   そのようなキー操作は，見付け次第uim.elを改良して対応するように
+   していますが，作者が一度も使ったことのないキー操作の中には，
+   正常に動作しないものが含まれているかもしれません．
+
+   もし，uim.elをONにすると利用できなくなってしまうキー操作を
+   見つけたら，是非BugzillaやMLで報告してください．
+
+   
+Q. ***-modeをuim.elと組み合わせて利用すると奇妙な振る舞いを示すのですが
+   なぜですか？
+
+A. 前述のuim.elの特殊性から，uim.elを特定のモードと組み合わせて利用した
+   場合に，そのモードがおかしな挙動を示す可能性は十分考えられます．
+
+   もし，そのようなモードを見つけたら，是非BugzillaやMLで報告してください．
+   
+
+Q. 時々，突然Emacsが操作不能になります．しばらくすると復活するのですが，
+   uim-modeが無効化されてしまいます．
+
+A. おそらく，uim.elのバックエンドプログラム (uim-el-agentもしくは 
+   uim-el-helper-agent) がクラッシュしたと思われます．
+
+   再現性があるようでしたら，是非BugzillaやMLで報告してください．
+
+
+Q. 私はuim-anthyを使っています．Emacsをターミナルエミュレータ上で
+   起動した場合，シフト＋右矢印およびシフト＋左矢印で文節の
+   伸ばし縮みができません．なぜでしょうか？
+   
+
+A. おそらく，以下の3つの理由のどれかによるものでしょう．
+
+    1) シフト＋左/右矢印がウィンドウマネージャやターミナルエミュレータ
+       自身のショートカットとして定義されている
+
+    2) ターミナルエミュレータがシフト＋矢印キーを認識・処理できない
+
+    3) ターミナルエミュレータが渡してくるシフト＋矢印キーの
+       エスケープシーケンスをEmacsが理解できていない
+
+
+   1)は単純です．ウィンドウマネージャや，ターミナルエミュレータの
+   設定を修正し，この有害なショートカットを無効化して下さい．
+
+
+   2)は深刻です．シフト＋矢印キーの利用を諦めるか，あるいは他の
+   ターミナルエミュレータに乗り換えるしかありません．
+
+
+   3)は，.emacsにエスケープシーケンスと対応するキーのペアを
+   追加することで修正可能です．
+
+   例えば，GNU Emacsは，以下を設定に加えることで，おそらくは大概の
+   ターミナルエミュレータに対応できます．
+
+      ;; xterm，mltermなど
+      (define-key function-key-map [27 79 49 59 50 65] [S-up])
+      (define-key function-key-map [27 79 49 59 50 66] [S-down])
+      (define-key function-key-map [27 79 49 59 50 67] [S-right])
+      (define-key function-key-map [27 79 49 59 50 68] [S-left])
+
+      (define-key function-key-map [27 79 49 59 53 65] [C-up])
+      (define-key function-key-map [27 79 49 59 53 66] [C-down])
+      (define-key function-key-map [27 79 49 59 53 67] [C-right])
+      (define-key function-key-map [27 79 49 59 53 68] [C-left])
+
+      (define-key function-key-map [27 79 49 59 54 65] [C-S-up])
+      (define-key function-key-map [27 79 49 59 54 66] [C-S-down])
+      (define-key function-key-map [27 79 49 59 54 67] [C-S-right])
+      (define-key function-key-map [27 79 49 59 54 68] [C-S-left])
+
+      ;; mrxvtなど
+      (define-key function-key-map [27 91 49 59 50 65] [S-up])
+      (define-key function-key-map [27 91 49 59 50 66] [S-down])
+      (define-key function-key-map [27 91 49 59 50 67] [S-right])
+      (define-key function-key-map [27 91 49 59 50 68] [S-left])
+
+      (define-key function-key-map [27 91 49 59 53 65] [C-up])
+      (define-key function-key-map [27 91 49 59 53 66] [C-down])
+      (define-key function-key-map [27 91 49 59 53 67] [C-right])
+      (define-key function-key-map [27 91 49 59 53 68] [C-left])
+
+      (define-key function-key-map [27 91 49 59 54 65] [C-S-up])
+      (define-key function-key-map [27 91 49 59 54 66] [C-S-down])
+      (define-key function-key-map [27 91 49 59 54 67] [C-S-right])
+      (define-key function-key-map [27 91 49 59 54 68] [C-S-left])
+
+      ;; urxvt など
+      (define-key function-key-map [27 91 97] [S-up])
+      (define-key function-key-map [27 91 98] [S-down])
+      (define-key function-key-map [27 91 99] [S-right])
+      (define-key function-key-map [27 91 100] [S-left])
+
+      (define-key function-key-map [27 79 97] [C-up])
+      (define-key function-key-map [27 79 98] [C-down])
+      (define-key function-key-map [27 79 99] [C-right])
+      (define-key function-key-map [27 79 100] [C-left])
+
+
+Q. かな入力時に，「ろ」と「ー」のどちらのキーを押しても「ろ」が入力
+   されてしまいます．どうすれば「ー」のキーで「ー」が入力される
+   ようになりますか？
+
+A. 残念ながら，これを実現する良い方法を私たちは知りません．
+
+   少なくとも GNU Emacs上で動作しているELISPのプログラムから，
+   これら2つのキーのどちらが押されたかを区別することができません．
+   GNU Emacsは，単に「\」(バックスラッシュ) キーが押されたとしか
+   認識しないのです．
+
+
+Q. 今朝CVSからチェックアウトしてきたEmacsだとuim.elが動きません！
+   早く何とかしてください！
+
+A. ごめんなさい．CVSの最先端のバージョンは，しばしばおかしなバグが
+   混入するため，現在は積極的なサポートをしていません．

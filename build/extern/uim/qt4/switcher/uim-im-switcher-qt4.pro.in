@@ -1,0 +1,15 @@
+include(../common.pro)
+
+TEMPLATE = app
+
+# to include qtgettext.h
+INCLUDEPATH += @srcdir@/..
+LIBS += -lreplace -luim -luim-scm -luim-custom @LIBINTL@
+
+# Input
+HEADERS += @srcdir@/qt4.h
+SOURCES += @srcdir@/qt4.cpp
+
+TARGET = uim-im-switcher-qt4
+
+target.path += @DESTDIR@@exec_prefix@/bin

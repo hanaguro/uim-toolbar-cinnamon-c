@@ -1,0 +1,174 @@
+pixmapsdir = @uim_pixmapsdir@
+
+SVGS = unknown.svg
+# dark background
+SVGS += unknown_dark_background.svg
+
+# input methods
+SVGS += direct.svg skk.svg tcode.svg tutcode.svg byeoru.svg
+# dark background
+SVGS += direct_dark_background.svg \
+        skk_dark_background.svg \
+        tcode_dark_background.svg \
+        tutcode_dark_background.svg
+
+# input modes
+SVGS += direct_input.svg on.svg off.svg \
+        ja_direct.svg ja_hiragana.svg ja_katakana.svg \
+        ja_halfkana.svg \
+        ja_halfwidth_alnum.svg ja_fullwidth_alnum.svg \
+        ko_direct.svg ko_hangulchar.svg ko_hangulword.svg
+# dark background
+SVGS += direct_input_dark_background.svg \
+        on_dark_background.svg \
+        off_dark_background.svg \
+        ja_direct_dark_background.svg \
+        ja_hiragana_dark_background.svg \
+        ja_katakana_dark_background.svg \
+        ja_halfkana_dark_background.svg \
+        ja_halfwidth_alnum_dark_background.svg \
+        ja_fullwidth_alnum_dark_background.svg \
+        ko_direct_dark_background.svg \
+        ko_hangulchar_dark_background.svg \
+        ko_hangulword_dark_background.svg
+
+# Japanese kana input methods
+SVGS += ja_romaji.svg ja_kana.svg ja_azik.svg ja_act.svg ja_kzik.svg \
+        ja_nicola.svg ja_pocketbell.svg
+# dark background
+SVGS += ja_romaji_dark_background.svg \
+        ja_kana_dark_background.svg \
+        ja_azik_dark_background.svg \
+        ja_act_dark_background.svg \
+        ja_kzik_dark_background.svg
+
+# Tools
+SVGS += im_switcher.svg uim-dict.svg
+
+# uim itself
+SVGS += uim-icon.svg
+
+# input method substitutions
+IM_SUBST_SVGS = py.svg pyunihan.svg pinyin-big5.svg \
+                hangul2.svg hangul3.svg romaja.svg \
+                viqr.svg ipa-x-sampa.svg latin.svg elatin.svg \
+                look.svg scim.svg \
+                google-cgiapi-jp.svg baidu-olime-jp.svg
+GENERATED_SVGS = $(IM_SUBST_SVGS) trycode.svg trycode_dark_background.svg
+SVGS += im_subst.svg $(GENERATED_SVGS)
+
+IM_SUBST_PNGS = py.png pyunihan.png pinyin-big5.png \
+                hangul2.png hangul3.png romaja.png \
+                viqr.png ipa-x-sampa.png latin.png elatin.png \
+                look.png scim.png \
+                google-cgiapi-jp.png baidu-olime-jp.png
+
+SVG_PNGS = unknown.png \
+           direct.png skk.png tcode.png tutcode.png trycode.png byeoru.png \
+           direct_input.png on.png off.png \
+           ja_direct.png ja_hiragana.png ja_katakana.png \
+           ja_halfkana.png \
+           ja_halfwidth_alnum.png ja_fullwidth_alnum.png \
+           ko_direct.png ko_hangulchar.png ko_hangulword.png \
+           ja_romaji.png ja_kana.png ja_azik.png ja_act.png ja_kzik.png \
+           ja_nicola.png \
+           ja_pocketbell.png \
+           im_switcher.png uim-dict.png $(IM_SUBST_PNGS) \
+           unknown_dark_background.png \
+           direct_dark_background.png \
+           skk_dark_background.png \
+           tcode_dark_background.png \
+           tutcode_dark_background.png \
+           trycode_dark_background.png \
+           direct_input_dark_background.png \
+           on_dark_background.png \
+           off_dark_background.png \
+           ja_direct_dark_background.png \
+           ja_hiragana_dark_background.png \
+           ja_katakana_dark_background.png \
+           ja_halfkana_dark_background.png \
+           ja_halfwidth_alnum_dark_background.png \
+           ja_fullwidth_alnum_dark_background.png \
+           ko_direct_dark_background.png \
+           ko_hangulchar_dark_background.png \
+           ko_hangulword_dark_background.png \
+           ja_romaji_dark_background.png \
+           ja_kana_dark_background.png \
+           ja_azik_dark_background.png \
+           ja_act_dark_background.png \
+           ja_kzik_dark_background.png
+
+NATIVE_PNGS = null.png uim-icon64.png uim-icon48.png uim-gray.png
+
+SCIM_PNGS = scim-anthy.png scim-canna.png \
+	    scim-skk.png
+SCIM_ORIGINATED_PNGS = anthy.png canna.png
+if ANTHY_UTF8
+SCIM_ORIGINATED_PNGS += anthy-utf8.png
+endif
+
+GENERATED_PNGS = $(SVG_PNGS) $(SCIM_ORIGINATED_PNGS) uim-icon.png
+
+PNGS = $(NATIVE_PNGS) $(GENERATED_PNGS)
+
+EXTRA_DIST = COPYING.BSDL COPYING.LGPL LIST indication-id.txt $(SCIM_PNGS) \
+	meson.build
+
+dist_pixmaps_DATA = $(SVGS) $(PNGS)
+
+MAINTAINERCLEANFILES = $(GENERATED_PNGS) $(GENERATED_SVGS)
+
+if MAINTAINER_MODE
+anthy.png: scim-anthy.png
+	cp $< $@
+anthy-utf8.png: scim-anthy.png
+	cp $< $@
+canna.png: scim-canna.png
+	cp $< $@
+uim-icon.png: uim-icon48.png
+	cp $< $@
+
+$(IM_SUBST_SVGS): im_subst.svg
+	cp $< $@
+
+trycode.svg: tcode.svg
+	cp $< $@
+
+trycode_dark_background.svg: tcode_dark_background.svg
+	cp $< $@
+
+.svg.png:
+	if test -n "$(RSVG)"; then		 \
+	    $(RSVG) -w 48 -h 48 -f png $< -o $@; \
+	fi
+
+# im_subst.svg embeds uim-gray.png by a relative path. A copy in the
+# build directory can't find it, so these are rendered from the original.
+$(IM_SUBST_PNGS): im_subst.svg uim-gray.png
+	if test -n "$(RSVG)"; then		 \
+	    $(RSVG) -w 48 -h 48 -f png $(srcdir)/im_subst.svg -o $@; \
+	fi
+endif
+
+clean-svgpng:
+	rm -f $(SVG_PNGS)
+clean-gensvg:
+	rm -f $(GENERATED_SVGS)
+clean-genpng:
+	rm -f $(GENERATED_PNGS)
+
+# rsvg-convert(1) is required to make a distribution, but does not for build
+# and install from a tarball distribution.
+dist-hook:
+	@test -n "$(RSVG)" \
+	    || (echo 'rsvg-convert(1) not found: install it'; exit 1)
+
+# Links the icons of m17n-db into uim's.
+install-data-hook:
+if M17NLIB
+	for f in $(m17n_db_dir)/icons/*.png; do \
+	  if test -f "$$f"; then \
+	    $(LN_S) -f "$$f" "$(DESTDIR)$(pixmapsdir)/m17n-`basename "$$f"`"; \
+	  fi; \
+	done
+endif
