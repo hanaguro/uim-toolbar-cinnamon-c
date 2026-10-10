@@ -1,0 +1,11 @@
+{
+    "uuid": "uim-toolbar@cinnamon.org",
+    "name": "UIM Toolbar",
+    "description": "UIM input method toolbar for Cinnamon panel",
+    "version": 1.0,
+    "max-version": 99,
+    "icon": "input-keyboard",
+    "settings-schema": "org.cinnamon.settings",
+    "multiscreen": false,
+    "shell-version": ["6.0", "6.2", "6.4"]
+}

@@ -1,0 +1,3 @@
+[submodule "extern/uim"]
+	path = extern/uim
+	url = https://github.com/uim/uim.git

@@ -1,0 +1,14 @@
+$ cinnamon-sp-extension ではなくアプレットとして追加する。
+アプレットは /usr/share/cinnamon/applets/uim-toolbar@cinnamon.org に
+インストールされ、パネル右クリック → アプレットの追加 → "UIM Toolbar"
+で有効化する。
+
+[metadata.json]
+{
+    "uuid": "uim-toolbar@cinnamon.org",
+    "name": "UIM Toolbar",
+    "description": "UIM input method toolbar for Cinnamon panel",
+    ...
+}
+
+にすることが重要。
