@@ -107,6 +107,11 @@ UimToolbarCommon *uim_toolbar_common_new(void)
         self->custom_enabled = (gboolean)uim_custom_enable();
     else
         self->custom_enabled = FALSE;
+    /* GTK3 版 toolbar_new() は helper_toolbar_check_custom() を init 時に
+     * 無条件で呼ぶ。custom_reload_notify 受信時だけ呼ぶと
+     * command_entry[].show_button が全項目 UIM_FALSE のままになり
+     * GetState の commands が常に空になる。 */
+    check_custom(self);
     the_instance = self;
     return self;
 }
