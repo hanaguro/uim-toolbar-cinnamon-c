@@ -1,0 +1,7 @@
+/* パネル上のツールボタン見た目（reference 実装 uim-toolbar@hanaguro-port
+ * と同じ規則）。ボタン枠は applet.js 側で min-width/min-height を inline style
+ * で指定する（options.json の buttonSize）。 */
+.uim-toolbar-box { spacing: 0px; }
+.uim-toolbar-button { padding: 0px 1px; border-radius: 3px; }
+.uim-toolbar-button:hover { background-color: rgba(128,128,128,0.25); }
+.uim-toolbar-button:focus { background-color: rgba(128,128,128,0.35); }

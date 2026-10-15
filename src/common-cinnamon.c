@@ -10,6 +10,7 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 
+#include <ctype.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,32 +25,37 @@
 #define TOOLBAR_PIXMAPS_DIR "/usr/share/uim/pixmaps"
 
 /* GTK3 版 command_entry[] と同一仕様（desc/label/icon/command/
- * custom_button_show_symbol）。Cinnamon ではツールボタン相当の項目を
- * アプレットの右クリックメニュー経由で起動する。 */
+ * custom_button_show_symbol）。toolbar-show-*-button? が真の項目は
+ * アプレット側でツールバー本体内にインラインのツールボタンとして
+ * 並べる（GTK3 版 append_tool_button / LXQt 版と同じ）。
+ * 右クリックメニューは GTK3 版 right_click_menu_create と同様、
+ * show_button とは独立に全項目を常時表示する。 */
 static struct _CommandEntry {
     const char *desc;
     const char *label;
     const char *icon;
     const char *command;
     const char *custom_button_show_symbol;
-    uim_bool show_button;
 } command_entry[] = {
     {N_("Switch input method"), NULL, "im_switcher", "uim-im-switcher-gtk3",
-     "toolbar-show-switcher-button?", UIM_FALSE},
+     "toolbar-show-switcher-button?"},
     {N_("Preference"), NULL, "preferences", "uim-pref-gtk3",
-     "toolbar-show-pref-button?", UIM_FALSE},
+     "toolbar-show-pref-button?"},
     {N_("Japanese dictionary editor"), NULL, "uim-dict", "uim-dict-gtk3",
-     "toolbar-show-dict-button?", UIM_FALSE},
+     "toolbar-show-dict-button?"},
     {N_("Input pad"), NULL, "input_pad", "uim-input-pad-ja-gtk3",
-     "toolbar-show-input-pad-button?", UIM_FALSE},
+     "toolbar-show-input-pad-button?"},
     {N_("Handwriting input pad"), "H", "handwriting", "uim-tomoe-gtk",
-     "toolbar-show-handwriting-input-pad-button?", UIM_FALSE},
-    {N_("Help"), NULL, "help", "uim-help", "toolbar-show-help-button?",
-     UIM_FALSE},
+     "toolbar-show-handwriting-input-pad-button?"},
+    {N_("Help"), NULL, "help", "uim-help",
+     "toolbar-show-help-button?"},
 };
 
-static const guint command_entry_len =
-    sizeof(command_entry) / sizeof(struct _CommandEntry);
+/* 構造体の配列サイズに使うため、C の整数定数式である必要がある。
+ * const guint の変数では定数式にならない（VLA 扱いになりエラー）ため
+ * sizeof 式を直接使うマクロにする */
+#define command_entry_len \
+    (sizeof(command_entry) / sizeof(command_entry[0]))
 
 struct _UimToolbarCommon {
     int fd;
@@ -57,15 +63,15 @@ struct _UimToolbarCommon {
     guint watch_id;
     gboolean reconnect_scheduled;
 
-    char *branch_label;
-    char *branch_tooltip;
-    char *branch_icon;
-    GList *leaves; /* UimToolbarPropEntry* */
+    /* GTK3 版 prop_button_create と同じく branch 行ごとに 1 グループ
+     * （複数 IM ジョブ/モード群があると枝が複数並ぶ） */
+    GList *branches; /* UimToolbarBranch* */
 
     gboolean is_connected;
     gboolean is_toolbar_visible;
     gboolean with_dark_bg;
     gboolean custom_enabled; /* GTK3 版 custom_enabled 相当 */
+    gboolean show_buttons[command_entry_len]; /* GTK3 版 show_button 相当 */
 
     GMainLoop *main_loop; /* uim_toolbar_common_quit 用 */
     void (*state_changed_cb)(void *user_data);
@@ -77,7 +83,7 @@ static gboolean fd_read_cb(GIOChannel *source, GIOCondition condition,
 static void helper_disconnect_cb(void);
 static void helper_reconnect(UimToolbarCommon *self);
 static void parse_prop_list_update(UimToolbarCommon *self, gchar **lines);
-static void free_leaves(UimToolbarCommon *self);
+static void free_branches(UimToolbarCommon *self);
 static void check_custom(UimToolbarCommon *self);
 static gboolean icon_exists(const char *name);
 static void helper_reconnect(UimToolbarCommon *self);
@@ -92,10 +98,7 @@ UimToolbarCommon *uim_toolbar_common_new(void)
     self->fd = -1;
     self->watch_id = 0;
     self->reconnect_scheduled = FALSE;
-    self->branch_label = g_strdup("");
-    self->branch_tooltip = g_strdup("");
-    self->branch_icon = g_strdup("uim-icon");
-    self->leaves = NULL;
+    self->branches = NULL;
     self->is_connected = FALSE;
     self->is_toolbar_visible = TRUE;
     self->with_dark_bg =
@@ -132,10 +135,7 @@ void uim_toolbar_common_free(UimToolbarCommon *self)
         uim_helper_close_client_fd(self->fd);
         self->fd = -1;
     }
-    free_leaves(self);
-    g_free(self->branch_label);
-    g_free(self->branch_tooltip);
-    g_free(self->branch_icon);
+    free_branches(self);
     if (the_instance == self)
         the_instance = NULL;
     g_free(self);
@@ -212,6 +212,10 @@ static gboolean fd_read_cb(GIOChannel *channel, GIOCondition c, gpointer p)
             else if (!strcmp("custom_reload_notify", lines[0])) {
                 uim_prop_reload_configs();
                 check_custom(self);
+                /* toolbar-show-*-button? の変更をアプレット側
+                 * （インラインツールボタン）へ反映させる */
+                if (self->state_changed_cb)
+                    self->state_changed_cb(self->state_changed_data);
             }
         }
         g_strfreev(lines);
@@ -233,6 +237,18 @@ static gboolean fd_read_cb(GIOChannel *channel, GIOCondition c, gpointer p)
  *   leaf\t<indication_id>\t<iconic_label>\t<label>\t<tooltip>\t<action>\t<state>
  * ===== */
 
+/* GTK3 版 safe_gettext と同一。ASCII のみの msgid のみ gettext を適用する
+ * （多言語混在時に日本語ラベル等が化けるのを防ぐ）。 */
+static const char *safe_gettext(const char *msgid)
+{
+    const char *p;
+
+    for (p = msgid; *p && isascii(*p); p++)
+        continue;
+
+    return (*p) ? msgid : gettext(msgid);
+}
+
 static char *convert_charset(const char *charset, const char *str)
 {
     if (!charset || !strcmp(charset, "UTF-8"))
@@ -240,18 +256,26 @@ static char *convert_charset(const char *charset, const char *str)
     return g_convert(str, -1, "UTF-8", charset, NULL, NULL, NULL);
 }
 
-static void free_leaves(UimToolbarCommon *self)
+static void free_branches(UimToolbarCommon *self)
 {
-    for (GList *it = self->leaves; it; it = it->next) {
-        UimToolbarPropEntry *e = (UimToolbarPropEntry *)it->data;
-        g_free(e->label);
-        g_free(e->tooltip);
-        g_free(e->icon);
-        g_free(e->action);
-        g_free(e);
+    for (GList *it = self->branches; it; it = it->next) {
+        UimToolbarBranch *b = (UimToolbarBranch *)it->data;
+        for (GList *lt = b->leaves; lt; lt = lt->next) {
+            UimToolbarPropEntry *e = (UimToolbarPropEntry *)lt->data;
+            g_free(e->label);
+            g_free(e->tooltip);
+            g_free(e->icon);
+            g_free(e->action);
+            g_free(e);
+        }
+        g_list_free(b->leaves);
+        g_free(b->label);
+        g_free(b->tooltip);
+        g_free(b->icon);
+        g_free(b);
     }
-    g_list_free(self->leaves);
-    self->leaves = NULL;
+    g_list_free(self->branches);
+    self->branches = NULL;
 }
 
 static int count_cols(char **cols)
@@ -268,8 +292,8 @@ static void parse_prop_list_update(UimToolbarCommon *self, gchar **lines)
     char *display_time;
     gboolean is_hidden;
     guint i;
-    GList *new_leaves = NULL;
-    char *branch_label = NULL, *branch_tooltip = NULL, *branch_icon = NULL;
+    GList *new_branches = NULL;
+    UimToolbarBranch *cur = NULL;
 
     for (i = 1; lines[i]; i++) {
         if (!strcmp(lines[i], ""))
@@ -284,7 +308,7 @@ static void parse_prop_list_update(UimToolbarCommon *self, gchar **lines)
     display_time = uim_scm_symbol_value_str("toolbar-display-time");
     is_hidden = strcmp(display_time, "mode") ? TRUE : FALSE;
 
-    free_leaves(self);
+    free_branches(self);
 
     for (i = 1; lines[i] && strcmp("", lines[i]); i++) {
         char *utf8_str = convert_charset(charset, lines[i]);
@@ -300,38 +324,39 @@ static void parse_prop_list_update(UimToolbarCommon *self, gchar **lines)
         if (cols && cols[0]) {
             if (!strcmp("branch", cols[0]) && count_cols(cols) >= 4) {
                 const char *indication_id = cols[1];
-                branch_label = g_strdup(cols[2]);
-                branch_tooltip = g_strdup(cols[3]);
-                branch_icon = g_strdup(indication_id);
+                /* GTK3 版 prop_button_create と同じく branch 行ごとに
+                 * 新しい枝を作る（例: SKK なら [Sk][あ][Ｒ] の 3 枝） */
+                cur = g_new0(UimToolbarBranch, 1);
+                cur->label = g_strdup(safe_gettext(cols[2]));
+                cur->tooltip = g_strdup(safe_gettext(cols[3]));
+                cur->icon = g_strdup(indication_id);
+                cur->leaves = NULL;
+                new_branches = g_list_append(new_branches, cur);
                 if (!is_hidden && (!strcmp(indication_id, "direct") ||
                                    g_str_has_suffix(indication_id, "_direct")))
                     is_hidden = TRUE;
             } else if (!strcmp("leaf", cols[0]) && count_cols(cols) >= 7) {
                 UimToolbarPropEntry *e = g_new0(UimToolbarPropEntry, 1);
-                e->label = g_strdup(cols[3]);
-                e->tooltip = g_strdup(cols[4]);
+                e->label = g_strdup(safe_gettext(cols[3]));
+                e->tooltip = g_strdup(safe_gettext(cols[4]));
                 e->icon = g_strdup(cols[1]);
                 e->action = g_strdup(cols[5]);
                 e->selected = !strcmp(cols[6], "*");
-                new_leaves = g_list_append(new_leaves, e);
+                if (cur) {
+                    cur->leaves = g_list_append(cur->leaves, e);
+                } else {
+                    g_free(e->label);
+                    g_free(e->tooltip);
+                    g_free(e->icon);
+                    g_free(e->action);
+                    g_free(e);
+                }
             }
         }
         g_strfreev(cols);
     }
 
-    self->leaves = new_leaves;
-    if (branch_label) {
-        g_free(self->branch_label);
-        self->branch_label = branch_label;
-    }
-    if (branch_tooltip) {
-        g_free(self->branch_tooltip);
-        self->branch_tooltip = branch_tooltip;
-    }
-    if (branch_icon) {
-        g_free(self->branch_icon);
-        self->branch_icon = branch_icon;
-    }
+    self->branches = new_branches;
 
     is_hidden = (is_hidden && strcmp(display_time, "always")) ? TRUE : FALSE;
     self->is_toolbar_visible = !is_hidden;
@@ -347,11 +372,16 @@ static void parse_prop_list_update(UimToolbarCommon *self, gchar **lines)
 static void check_custom(UimToolbarCommon *self)
 {
     guint i;
-    for (i = 0; i < command_entry_len; i++)
-        command_entry[i].show_button =
-            uim_scm_symbol_value_bool(command_entry[i].custom_button_show_symbol);
+
     self->with_dark_bg =
         uim_scm_symbol_value_bool("toolbar-icon-for-dark-background?");
+
+    /* GTK3 版 helper_toolbar_check_custom() と同じ:
+     * toolbar-show-*-button? でインラインツールボタンの表示/非表示を決める */
+    for (i = 0; i < command_entry_len; i++)
+        self->show_buttons[i] =
+            uim_scm_symbol_value_bool(
+                command_entry[i].custom_button_show_symbol);
 }
 
 /* ===== アイコン（GTK3 版 register_icon のファイル探索と同じ規則） ===== */
@@ -368,17 +398,15 @@ static gboolean icon_exists(const char *name)
 
 char *uim_toolbar_common_icon_path(UimToolbarCommon *self, const char *name)
 {
-    char path[512];
-    struct stat st;
-
     if (!name || !*name)
         return NULL;
 
     if (self->with_dark_bg) {
-        g_snprintf(path, sizeof(path), "%s/%s_dark_background.png",
-                   TOOLBAR_PIXMAPS_DIR, name);
-        if (stat(path, &st) == 0)
-            return g_strdup(path);
+        char *dark = g_strdup_printf("%s/%s_dark_background.png",
+                                     TOOLBAR_PIXMAPS_DIR, name);
+        if (g_file_test(dark, G_FILE_TEST_EXISTS))
+            return dark;
+        g_free(dark);
     }
     if (icon_exists(name))
         return g_strdup_printf("%s/%s.png", TOOLBAR_PIXMAPS_DIR, name);
@@ -475,14 +503,13 @@ GList *uim_toolbar_common_command_entries(UimToolbarCommon *self)
 {
     GList *list = NULL;
     for (guint i = 0; i < command_entry_len; i++) {
-        if (!command_entry[i].show_button)
-            continue;
         UimToolbarCommandEntry *c = g_new0(UimToolbarCommandEntry, 1);
         c->desc = g_strdup(_(command_entry[i].desc));
         c->label = g_strdup(command_entry[i].label);
         c->command = g_strdup(command_entry[i].command);
         c->icon_path = uim_toolbar_common_icon_path(self,
                                                     command_entry[i].icon);
+        c->show_button = self->show_buttons[i];
         list = g_list_append(list, c);
     }
     return list;
@@ -503,24 +530,9 @@ void uim_toolbar_command_entry_list_free(GList *list)
 
 /* ===== 状態アクセサ ===== */
 
-const char *uim_toolbar_common_branch_label(UimToolbarCommon *self)
+GList *uim_toolbar_common_branches(UimToolbarCommon *self)
 {
-    return self->branch_label;
-}
-
-const char *uim_toolbar_common_branch_tooltip(UimToolbarCommon *self)
-{
-    return self->branch_tooltip;
-}
-
-char *uim_toolbar_common_branch_icon_path(UimToolbarCommon *self)
-{
-    return uim_toolbar_common_icon_path(self, self->branch_icon);
-}
-
-GList *uim_toolbar_common_leaves(UimToolbarCommon *self)
-{
-    return self->leaves;
+    return self->branches;
 }
 
 gboolean uim_toolbar_common_is_visible(UimToolbarCommon *self)

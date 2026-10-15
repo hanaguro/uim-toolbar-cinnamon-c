@@ -51,23 +51,66 @@ struct _UimToolbarCinnamon {
 static char *state_to_json(UimToolbarCinnamon *self)
 {
     JsonObject *root = json_object_new();
-    JsonArray *leaves = json_array_new();
     GList *it;
 
     json_object_set_boolean_member(root, "connected",
                                    uim_toolbar_common_is_connected(self->common));
     json_object_set_boolean_member(root, "visible",
                                    uim_toolbar_common_is_visible(self->common));
+
+    /* branch 行ごとに 1 グループ（GTK3 版が branch ごとに prop_button を
+     * 作るのと同じ。SKK なら [Sk][あ][Ｒ] の 3 枝が並ぶ）。
+     * 先頭枝が IM 切り替え、以降が入力モード等の枝分组 */
+    JsonArray *branch_arr = json_array_new();
+    for (it = uim_toolbar_common_branches(self->common); it; it = it->next) {
+        UimToolbarBranch *b = (UimToolbarBranch *)it->data;
+        JsonObject *branch = json_object_new();
+        JsonArray *leaves = json_array_new();
+        GList *lt;
+
+        json_object_set_string_member(branch, "label", b->label);
+        json_object_set_string_member(branch, "tooltip", b->tooltip);
+        char *icon_path = uim_toolbar_common_icon_path(self->common, b->icon);
+        json_object_set_string_member(branch, "icon_path",
+                                      icon_path ? icon_path : "");
+        g_free(icon_path);
+
+        for (lt = b->leaves; lt; lt = lt->next) {
+            UimToolbarPropEntry *e = (UimToolbarPropEntry *)lt->data;
+            JsonObject *leaf = json_object_new();
+            char *leaf_icon =
+                uim_toolbar_common_icon_path(self->common, e->icon);
+            json_object_set_string_member(leaf, "label", e->label);
+            json_object_set_string_member(leaf, "tooltip", e->tooltip);
+            json_object_set_string_member(leaf, "icon_path",
+                                          leaf_icon ? leaf_icon : "");
+            json_object_set_string_member(leaf, "action", e->action);
+            json_object_set_boolean_member(leaf, "selected", e->selected);
+            g_free(leaf_icon);
+            json_array_add_object_element(leaves, leaf);
+        }
+        json_object_set_array_member(branch, "leaves", leaves);
+        json_array_add_object_element(branch_arr, branch);
+    }
+    json_object_set_array_member(root, "branches", branch_arr);
+
+    /* 後方互換: 先頭枝（= 従来単一枝だった IM 切り替え表示）のまま */
+    UimToolbarBranch *first = NULL;
+    GList *bl = uim_toolbar_common_branches(self->common);
+    if (bl)
+        first = (UimToolbarBranch *)bl->data;
     json_object_set_string_member(root, "label",
-                                  uim_toolbar_common_branch_label(self->common));
+                                  first ? first->label : "");
     json_object_set_string_member(root, "tooltip",
-                                  uim_toolbar_common_branch_tooltip(self->common));
-
-    char *icon_path = uim_toolbar_common_branch_icon_path(self->common);
-    json_object_set_string_member(root, "icon_path", icon_path ? icon_path : "");
+                                  first ? first->tooltip : "");
+    char *icon_path = first ? uim_toolbar_common_icon_path(self->common,
+                                                           first->icon)
+                             : NULL;
+    json_object_set_string_member(root, "icon_path",
+                                  icon_path ? icon_path : "");
     g_free(icon_path);
-
-    for (it = uim_toolbar_common_leaves(self->common); it; it = it->next) {
+    JsonArray *leaves = json_array_new();
+    for (it = first ? first->leaves : NULL; it; it = it->next) {
         UimToolbarPropEntry *e = (UimToolbarPropEntry *)it->data;
         JsonObject *leaf = json_object_new();
         char *leaf_icon = uim_toolbar_common_icon_path(self->common, e->icon);
@@ -82,7 +125,8 @@ static char *state_to_json(UimToolbarCinnamon *self)
     }
     json_object_set_array_member(root, "leaves", leaves);
 
-    /* ツールボタン相当（右クリックメニュー項目） */
+    /* ヘルパー起動項目（右クリックメニューは全件、
+     * show_button が真のものはアプレット本体にインライン表示） */
     JsonArray *commands = json_array_new();
     GList *clist = uim_toolbar_common_command_entries(self->common);
     for (it = clist; it; it = it->next) {
@@ -93,6 +137,7 @@ static char *state_to_json(UimToolbarCinnamon *self)
         json_object_set_string_member(cmd, "command", c->command);
         json_object_set_string_member(cmd, "icon_path",
                                       c->icon_path ? c->icon_path : "");
+        json_object_set_boolean_member(cmd, "show_button", c->show_button);
         json_array_add_object_element(commands, cmd);
     }
     uim_toolbar_command_entry_list_free(clist);

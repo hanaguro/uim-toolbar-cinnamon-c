@@ -19,11 +19,23 @@ typedef struct _UimToolbarPropEntry {
     gboolean selected; /* 選択状態（state == "*"） */
 } UimToolbarPropEntry;
 
+/* prop_list_update の branch 行ごとの枝（インジケータ）グループ。
+ * branch 行 1 本 = 「現在の状態表示」1 つとその切替項目 leaves。
+ * GTK3 版は branch 行ごとに prop_button を作る（複数来れば buttons も複数。
+ * 例: SKK なら [IM 切替][入力モード][ローマ字] の 3 グループ） */
+typedef struct _UimToolbarBranch {
+    char *label;   /* branch 行の iconic_label（ボタン表示） */
+    char *tooltip; /* branch 行の description（ツールチップ） */
+    char *icon;    /* indication_id（uim pixmaps 名） */
+    GList *leaves; /* UimToolbarPropEntry* */
+} UimToolbarBranch;
+
 typedef struct _UimToolbarCommandEntry {
-    char *desc;      /* 表示名 */
-    char *label;     /* テキストラベル（アイコンが無い項目用） */
-    char *command;   /* 起動コマンド（uim-pref-gtk3 等） */
-    char *icon_path; /* /usr/share/uim/pixmaps 配下の png（無ければ NULL） */
+    char *desc;        /* 表示名 */
+    char *label;       /* テキストラベル（アイコンが無い項目用） */
+    char *command;     /* 起動コマンド（uim-pref-gtk3 等） */
+    char *icon_path;   /* /usr/share/uim/pixmaps 配下の png（無ければ NULL） */
+    gboolean show_button; /* toolbar-show-*-button? が真（インラインボタン表示） */
 } UimToolbarCommandEntry;
 
 typedef struct _UimToolbarCommon UimToolbarCommon;
@@ -34,11 +46,8 @@ void uim_toolbar_common_free(UimToolbarCommon *self);
 /* helper 接続開始（切断時は 1 秒後に再接続） */
 void uim_toolbar_common_connect(UimToolbarCommon *self);
 
-/* 現在の状態 */
-const char *uim_toolbar_common_branch_label(UimToolbarCommon *self);
-const char *uim_toolbar_common_branch_tooltip(UimToolbarCommon *self);
-char *uim_toolbar_common_branch_icon_path(UimToolbarCommon *self); /* 呼び出し側で g_free */
-GList *uim_toolbar_common_leaves(UimToolbarCommon *self); /* const UimToolbarPropEntry* */
+/* 現在の状態。枝リストは helper プロトコルの出現順（先頭 = IM グループ）*/
+GList *uim_toolbar_common_branches(UimToolbarCommon *self); /* const UimToolbarBranch* */
 gboolean uim_toolbar_common_is_visible(UimToolbarCommon *self);
 gboolean uim_toolbar_common_is_connected(UimToolbarCommon *self);
 
@@ -60,7 +69,9 @@ gboolean uim_toolbar_common_launch_helper(UimToolbarCommon *self,
 const char *uim_toolbar_common_helper_command(UimToolbarCommon *self,
                                               const char *desc);
 
-/* ツールボタン相当（toolbar-show-*-button? が真の項目） */
+/* ヘルパー起動項目の全リスト（インラインツールボタン相当。
+ * show_button フラグが toolbar-show-*-button? に対応し、
+ * アプレット側でツールバー本体内に並べるか判定するのに使う） */
 GList *uim_toolbar_common_command_entries(UimToolbarCommon *self);
 void uim_toolbar_command_entry_list_free(GList *list);
 

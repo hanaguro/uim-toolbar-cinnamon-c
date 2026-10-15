@@ -146,13 +146,18 @@ add_dependencies(uim-toolbar-cinnamon uim_config)
 # ==========================
 set(CINNAMON_APPLET_DIR "/usr/share/cinnamon/applets/uim-toolbar@cinnamon.org")
 
+# 常駐プロセスはアプレットのディレクトリに同梱する。
+# /usr/bin に置く必要は無く、アプレットが metadata.path（自身のインストール先）
+# からのフルパスで起動するため、~/.cinnamon 配下にコピーした場合も動く。
 install(TARGETS uim-toolbar-cinnamon
-    RUNTIME DESTINATION /usr/bin
+    RUNTIME DESTINATION ${CINNAMON_APPLET_DIR}
 )
 
 install(FILES
     applet/metadata.json
     applet/applet.js
+    applet/stylesheet.css
+    applet/options.json
     DESTINATION ${CINNAMON_APPLET_DIR}
 )
 
